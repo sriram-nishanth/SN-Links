@@ -1,10 +1,11 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { createBrowserRouter, RouterProvider } from "react-router-dom";
-import { I18nextProvider } from 'react-i18next'
-import i18n from './i18n' // Initialize i18n
-import { UserProvider } from './Context/UserContext'
-import { SocketProvider } from './Context/SocketContext'
+import { I18nextProvider } from "react-i18next";
+import i18n from "./i18n"; // Initialize i18n
+import { UserProvider } from "./Context/UserContext";
+import { SocketProvider } from "./Context/SocketContext";
+import ProtectedRoute from "./Components/ProtectedRoute";
 import "./index.css";
 import App from "./App.jsx";
 import HomePage from "./Pages/HomePage.jsx";
@@ -12,14 +13,52 @@ import Profile from "./Pages/Profile.jsx";
 import Setting from "./Pages/Setting.jsx";
 import Chat from "./Pages/Chat.jsx";
 import SignupPage from "./Pages/SignupPage.jsx";
+import ExploreUsers from "./Pages/ExploreUsers.jsx";
 
 const router = createBrowserRouter([
   { path: "/", element: <App /> },
+  { path: "/login", element: <App /> },
   { path: "/signup", element: <SignupPage /> },
-  { path: "/home", element: <HomePage /> },
-  { path: "/profile/:userId", element: <Profile /> },
-  { path: "/setting", element: <Setting /> },
-  { path: "/chat", element: <Chat /> },
+  {
+    path: "/home",
+    element: (
+      <ProtectedRoute>
+        <HomePage />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/profile/:userId",
+    element: (
+      <ProtectedRoute>
+        <Profile />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/setting",
+    element: (
+      <ProtectedRoute>
+        <Setting />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/chat",
+    element: (
+      <ProtectedRoute>
+        <Chat />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/explore/users",
+    element: (
+      <ProtectedRoute>
+        <ExploreUsers />
+      </ProtectedRoute>
+    ),
+  },
 ]);
 
 createRoot(document.getElementById("root")).render(
@@ -31,5 +70,5 @@ createRoot(document.getElementById("root")).render(
         </SocketProvider>
       </UserProvider>
     </I18nextProvider>
-  </StrictMode>
+  </StrictMode>,
 );

@@ -75,9 +75,14 @@ export const UserProvider = ({ children }) => {
     try {
       let response;
       if (googleToken) {
-        response = await axios.post(`${API_BASE_URL}/user/auth/google`, { token: googleToken });
+        response = await axios.post(`${API_BASE_URL}/user/auth/google`, {
+          token: googleToken,
+        });
       } else {
-        response = await axios.post(`${API_BASE_URL}/user/login`, { email, password });
+        response = await axios.post(`${API_BASE_URL}/user/login`, {
+          email,
+          password,
+        });
       }
 
       if (response.data.success) {
@@ -86,10 +91,10 @@ export const UserProvider = ({ children }) => {
         setUser(userData);
         localStorage.setItem("user", JSON.stringify(userData));
       } else {
-        throw new Error(response.data.message || 'Login failed');
+        throw new Error(response.data.message || "Login failed");
       }
     } catch (err) {
-      console.error('Login error:', err);
+      console.error("Login error:", err);
       throw err;
     } finally {
       setLoading(false);
@@ -103,10 +108,74 @@ export const UserProvider = ({ children }) => {
   };
 
   // Logout function
-  const logout = () => {
-    setUser(null);
-    localStorage.removeItem("user");
-    document.cookie = "token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+  const logout = async () => {
+    try {
+      const token = getToken();
+
+      // Call backend logout endpoint if token exists (optional but recommended)
+      if (token) {
+        try {
+          await axios.post(
+            `${API_BASE_URL}/user/logout`,
+            {},
+            {
+              headers: {
+                Authorization: `Bearer ${token}`,
+                "Content-Type": "application/json",
+              },
+            },
+          );
+        } catch (err) {
+          // Continue with client-side logout even if backend call fails
+          console.error("Backend logout failed:", err);
+        }
+      }
+
+      // Clear user state
+      setUser(null);
+
+      // Clear all localStorage items related to auth
+      localStorage.removeItem("user");
+      localStorage.removeItem("token");
+      localStorage.removeItem("authToken");
+      localStorage.clear(); // Clear all localStorage (optional - use if only auth data is stored)
+
+      // Clear all sessionStorage
+      sessionStorage.clear();
+
+      // Clear all cookies (comprehensive approach)
+      document.cookie =
+        "token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Strict";
+      document.cookie = "token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT"; // Without SameSite for compatibility
+
+      // Clear any other potential cookies
+      const cookies = document.cookie.split(";");
+      for (let i = 0; i < cookies.length; i++) {
+        const cookie = cookies[i];
+        const eqPos = cookie.indexOf("=");
+        const name =
+          eqPos > -1 ? cookie.substr(0, eqPos).trim() : cookie.trim();
+        document.cookie =
+          name + "=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+        document.cookie =
+          name +
+          "=; path=/; domain=" +
+          window.location.hostname +
+          "; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+      }
+
+      // Dispatch logout event for other tabs/windows
+      window.dispatchEvent(new Event("userLoggedOut"));
+
+      // Force reload to clear any in-memory state (optional)
+      // window.location.href = '/';
+    } catch (err) {
+      console.error("Logout error:", err);
+      // Even if there's an error, clear the local state
+      setUser(null);
+      localStorage.clear();
+      sessionStorage.clear();
+    }
   };
 
   // Initialize user data on mount

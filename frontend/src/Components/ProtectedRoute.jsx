@@ -1,9 +1,8 @@
 import React from "react";
-import { useUser } from "./Context/UserContext";
-import LoginPage from "./Pages/LoginPage";
 import { Navigate } from "react-router-dom";
+import { useUser } from "../Context/UserContext";
 
-const App = () => {
+const ProtectedRoute = ({ children }) => {
   const { user, loading } = useUser();
 
   if (loading) {
@@ -14,13 +13,11 @@ const App = () => {
     );
   }
 
-  // If user is authenticated, redirect to home
-  if (user) {
-    return <Navigate to="/home" replace />;
+  if (!user) {
+    return <Navigate to="/login" replace />;
   }
 
-  // If user is not authenticated, show login page
-  return <LoginPage />;
+  return children;
 };
 
-export default App;
+export default ProtectedRoute;

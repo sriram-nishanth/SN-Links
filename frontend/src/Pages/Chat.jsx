@@ -15,7 +15,7 @@ import {
 } from "react-icons/io5";
 import { FiSmile, FiPaperclip, FiMoreVertical, FiImage } from "react-icons/fi";
 import { motion, AnimatePresence } from "framer-motion";
-import Header from "../Components/Header";
+import ModernNavbar from "../Components/ModernNavbar";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { useUser } from "../Context/UserContext";
@@ -95,7 +95,7 @@ const Chat = () => {
           headers: { Authorization: `Bearer ${token}` },
         },
       );
-      
+
       const followingResponse = await axios.get(
         `${API_BASE_URL}/user/${user._id}/following`,
         {
@@ -107,9 +107,9 @@ const Chat = () => {
       const following = followingResponse.data.data || [];
 
       const combinedConversations = [...conversations];
-      const conversationUserIds = conversations.map(c => c.user._id);
+      const conversationUserIds = conversations.map((c) => c.user._id);
 
-      following.forEach(followedUser => {
+      following.forEach((followedUser) => {
         if (!conversationUserIds.includes(followedUser._id)) {
           combinedConversations.push({
             user: followedUser,
@@ -194,10 +194,12 @@ const Chat = () => {
 
   // Join room when chat is selected
   useEffect(() => {
-    if (selectedChatId && socket) {
-      joinRoom(selectedChatId);
+    if (selectedChatId && socket && user) {
+      // Create room ID matching backend logic: [userId1, userId2].sort().join('_')
+      const roomId = [user._id, selectedChatId].sort().join("_");
+      joinRoom(roomId);
     }
-  }, [selectedChatId, socket, joinRoom]);
+  }, [selectedChatId, socket, user, joinRoom]);
 
   // Socket event listeners
   useEffect(() => {
@@ -397,12 +399,23 @@ const Chat = () => {
 
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const yesterday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
+    const yesterday = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate() - 1,
+    );
 
-    const inputDate = new Date(dateObj.getFullYear(), dateObj.getMonth(), dateObj.getDate());
+    const inputDate = new Date(
+      dateObj.getFullYear(),
+      dateObj.getMonth(),
+      dateObj.getDate(),
+    );
 
     if (inputDate.getTime() === today.getTime()) {
-      return dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      return dateObj.toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+      });
     } else if (inputDate.getTime() === yesterday.getTime()) {
       return "Yesterday";
     } else {
@@ -598,8 +611,8 @@ const Chat = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-zinc-900 to-slate-900">
-      <Header />
-      <div className="flex h-[calc(100vh-64px)] relative overflow-hidden">
+      <ModernNavbar searchQuery={searchQuery} setSearchQuery={setSearchQuery} />
+      <div className="flex h-[calc(100vh-80px)] relative overflow-hidden pt-20 pb-20 sm:pb-0">
         {/* Mobile Chat List Overlay */}
         <AnimatePresence>
           {isMobile && showMobileChatList && (
@@ -856,9 +869,7 @@ const Chat = () => {
                           }`}
                         >
                           {chat.lastMessage
-                            ? formatTime(
-                                new Date(chat.lastMessage.createdAt),
-                              )
+                            ? formatTime(new Date(chat.lastMessage.createdAt))
                             : ""}
                         </span>
                       </div>
@@ -948,9 +959,7 @@ const Chat = () => {
                       {selectedChat?.user?.name}
                     </h3>
                     <p className="text-gray-400 text-xs">
-                      {selectedChat?.isOnline
-                        ? "Online"
-                        : "Offline"}
+                      {selectedChat?.isOnline ? "Online" : "Offline"}
                     </p>
                   </div>
                 </div>

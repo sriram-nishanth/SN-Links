@@ -8,6 +8,8 @@
   },
   "settings": {
     "title": "Paramètres",
+    "viewProfile": "Voir le Profil",
+    "settings": "Paramètres",
     "account": "Compte",
     "appsWebsite": "Applications et Sites Web",
     "changePassword": "Changer le Mot de Passe",

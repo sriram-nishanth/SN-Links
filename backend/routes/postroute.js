@@ -36,6 +36,15 @@ router.use(protect);
 // Get posts for feed
 router.get('/posts', getPosts);
 
+// Alias route for compatibility with frontend calling /api/post/all
+router.get('/post/all', getPosts);
+
+// Alias for like route
+router.post('/post/:postId/like', toggleLike);
+
+// Alias for comment route
+router.post('/post/:id/comment', addComment);
+
 // Create new post with file upload
 router.post('/posts', upload.any(), createPost);
 

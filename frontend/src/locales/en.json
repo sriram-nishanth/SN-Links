@@ -8,6 +8,8 @@
   },
   "settings": {
     "title": "Settings",
+    "viewProfile": "View Profile",
+    "settings": "Settings",
     "account": "Account",
     "appsWebsite": "Apps and Website",
     "changePassword": "Change Password",

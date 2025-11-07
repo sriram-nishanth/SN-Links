@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { assert, ProfileData } from "../utils/assest";
-import { useUser } from '../Context/UserContext'
-import { useSocket } from '../Context/SocketContext'
+import { useUser } from "../Context/UserContext";
+import { useSocket } from "../Context/SocketContext";
 import DefaultAvatar from "./DefaultAvatar";
 import {
   FaRegHeart,
@@ -13,12 +13,12 @@ import {
   FaEdit,
   FaTrash,
 } from "react-icons/fa";
-import Toast from './Toast';
+import Toast from "./Toast";
 import { CiFileOn } from "react-icons/ci";
 
 const PostSlide = ({ searchQuery }) => {
   const { user } = useUser();
-  const socket = useSocket();
+  const { socket } = useSocket();
   const navigate = useNavigate();
   const [newPost, setNewPost] = useState("");
   const [comments, setComments] = useState({});
@@ -39,34 +39,36 @@ const PostSlide = ({ searchQuery }) => {
   const [currentUserId, setCurrentUserId] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showProfileImage, setShowProfileImage] = useState(null);
-  const [toast, setToast] = useState({ message: '', type: '' });
+  const [toast, setToast] = useState({ message: "", type: "" });
 
   useEffect(() => {
-    if (socket) {
-      socket.on('new_post', (newPost) => {
+    if (socket && socket.on) {
+      socket.on("new_post", (newPost) => {
         setPosts((prevPosts) => [newPost, ...prevPosts]);
       });
 
-      socket.on('like_post', ({ postId, likes }) => {
+      socket.on("like_post", ({ postId, likes }) => {
         setPosts((prevPosts) =>
           prevPosts.map((post) =>
-            post.id === postId ? { ...post, likes } : post
-          )
+            post.id === postId ? { ...post, likes } : post,
+          ),
         );
       });
 
-      socket.on('new_comment', ({ postId, comments }) => {
+      socket.on("new_comment", ({ postId, comments }) => {
         setPosts((prevPosts) =>
           prevPosts.map((post) =>
-            post.id === postId ? { ...post, comments } : post
-          )
+            post.id === postId ? { ...post, comments } : post,
+          ),
         );
       });
 
       return () => {
-        socket.off('new_post');
-        socket.off('like_post');
-        socket.off('new_comment');
+        if (socket && socket.off) {
+          socket.off("new_post");
+          socket.off("like_post");
+          socket.off("new_comment");
+        }
       };
     }
   }, [socket]);
@@ -84,13 +86,16 @@ const PostSlide = ({ searchQuery }) => {
         let currentUserData = null;
 
         // Fetch user profile first
-        const userResponse = await fetch('http://localhost:3000/api/user/profile', {
-          method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
+        const userResponse = await fetch(
+          "http://localhost:3000/api/user/profile",
+          {
+            method: "GET",
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
           },
-        });
+        );
 
         if (userResponse.ok) {
           const userData = await userResponse.json();
@@ -100,13 +105,16 @@ const PostSlide = ({ searchQuery }) => {
             currentUserData = userData.data;
 
             // Fetch friends
-            const friendsResponse = await fetch(`http://localhost:3000/api/user/${userData.data._id}/following`, {
-              method: 'GET',
-              headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json',
+            const friendsResponse = await fetch(
+              `http://localhost:3000/api/user/${userData.data._id}/following`,
+              {
+                method: "GET",
+                headers: {
+                  Authorization: `Bearer ${token}`,
+                  "Content-Type": "application/json",
+                },
               },
-            });
+            );
 
             if (friendsResponse.ok) {
               const friendsData = await friendsResponse.json();
@@ -118,11 +126,11 @@ const PostSlide = ({ searchQuery }) => {
         }
 
         // Fetch posts
-        const response = await fetch('http://localhost:3000/api/posts', {
-          method: 'GET',
+        const response = await fetch("http://localhost:3000/api/posts", {
+          method: "GET",
           headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
           },
         });
 
@@ -130,24 +138,27 @@ const PostSlide = ({ searchQuery }) => {
           const data = await response.json();
           if (data.success) {
             // Transform backend posts to match frontend format
-            const transformedPosts = data.data.map(post => ({
+            const transformedPosts = data.data.map((post) => ({
               id: post._id,
               author: {
                 id: post.author._id,
                 name: post.author.name,
-                username: `@${post.author.name.toLowerCase().replace(/\s+/g, '')}`,
-                profileImage: post.author.profileImage || ProfileData[0].profileImage,
+                username: `@${post.author.name.toLowerCase().replace(/\s+/g, "")}`,
+                profileImage:
+                  post.author.profileImage || ProfileData[0].profileImage,
               },
               content: post.content,
               media: post.media,
               isVideo: post.isVideo,
               likes: post.likes.length,
-              likedByUser: currentUserData ? post.likes.includes(currentUserData._id) : false,
-              comments: post.comments.map(comment => ({
+              likedByUser: currentUserData
+                ? post.likes.includes(currentUserData._id)
+                : false,
+              comments: post.comments.map((comment) => ({
                 id: comment._id,
                 user: comment.user.name,
                 text: comment.text,
-                userId: comment.user._id
+                userId: comment.user._id,
               })),
               timestamp: new Date(post.createdAt).toLocaleDateString(),
             }));
@@ -155,7 +166,7 @@ const PostSlide = ({ searchQuery }) => {
 
             // Initialize liked posts set
             const initialLiked = new Set();
-            transformedPosts.forEach(post => {
+            transformedPosts.forEach((post) => {
               if (post.likedByUser) {
                 initialLiked.add(post.id);
               }
@@ -164,7 +175,7 @@ const PostSlide = ({ searchQuery }) => {
           }
         }
       } catch (error) {
-        console.error('Error fetching data:', error);
+        console.error("Error fetching data:", error);
         // Fallback to dummy posts if backend fails
         setPosts(initialPosts);
       } finally {
@@ -175,25 +186,23 @@ const PostSlide = ({ searchQuery }) => {
     fetchUserAndPosts();
   }, []);
 
-
-
   const filteredPosts = posts.filter(
     (post) =>
       post.author?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      post.content?.toLowerCase().includes(searchQuery.toLowerCase())
+      post.content?.toLowerCase().includes(searchQuery.toLowerCase()),
   );
 
   const handleLike = async (postId) => {
     try {
       const token = user?.token;
       if (!token) {
-        setToast({ message: 'Please login to like posts', type: 'error' });
+        setToast({ message: "Please login to like posts", type: "error" });
         return;
       }
 
       // Optimistic update
       const wasLiked = likedPosts.has(postId);
-      const currentPost = posts.find(p => p.id === postId);
+      const currentPost = posts.find((p) => p.id === postId);
       const currentLikes = currentPost ? Number(currentPost.likes) || 0 : 0;
 
       setLikedPosts((prev) => {
@@ -211,19 +220,24 @@ const PostSlide = ({ searchQuery }) => {
           post.id === postId
             ? {
                 ...post,
-                likes: wasLiked ? Math.max(0, currentLikes - 1) : currentLikes + 1,
+                likes: wasLiked
+                  ? Math.max(0, currentLikes - 1)
+                  : currentLikes + 1,
               }
-            : post
-        )
+            : post,
+        ),
       );
 
-      const response = await fetch(`http://localhost:3000/api/posts/${postId}/like`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
+      const response = await fetch(
+        `http://localhost:3000/api/posts/${postId}/like`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
         },
-      });
+      );
 
       if (response.ok) {
         const data = await response.json();
@@ -236,13 +250,13 @@ const PostSlide = ({ searchQuery }) => {
                     ...post,
                     likes: Number(data.data.likes) || 0,
                   }
-                : post
-            )
+                : post,
+            ),
           );
           // LikedPosts is already updated optimistically
 
-          if (socket) {
-            socket.emit('like_post', { postId, likes: data.data.likes });
+          if (socket && socket.emit) {
+            socket.emit("like_post", { postId, likes: data.data.likes });
           }
         }
       } else {
@@ -263,16 +277,16 @@ const PostSlide = ({ searchQuery }) => {
                   ...post,
                   likes: currentLikes,
                 }
-              : post
-          )
+              : post,
+          ),
         );
-        setToast({ message: 'Failed to like post', type: 'error' });
+        setToast({ message: "Failed to like post", type: "error" });
       }
     } catch (error) {
-      console.error('Error liking post:', error);
+      console.error("Error liking post:", error);
       // Revert optimistic update
       const wasLiked = likedPosts.has(postId);
-      const currentPost = posts.find(p => p.id === postId);
+      const currentPost = posts.find((p) => p.id === postId);
       const currentLikes = currentPost ? Number(currentPost.likes) || 0 : 0;
       setLikedPosts((prev) => {
         const newLiked = new Set(prev);
@@ -290,10 +304,10 @@ const PostSlide = ({ searchQuery }) => {
                 ...post,
                 likes: currentLikes,
               }
-            : post
-        )
+            : post,
+        ),
       );
-      setToast({ message: 'Error liking post', type: 'error' });
+      setToast({ message: "Error liking post", type: "error" });
     }
   };
 
@@ -312,21 +326,21 @@ const PostSlide = ({ searchQuery }) => {
     try {
       const token = user?.token;
       if (!token) {
-        setToast({ message: 'Please login to post', type: 'error' });
+        setToast({ message: "Please login to post", type: "error" });
         return;
       }
 
       const formData = new FormData();
-      formData.append('content', newPost);
+      formData.append("content", newPost);
       if (selectedFile) {
-        formData.append('media', selectedFile);
-        formData.append('isVideo', isVideo);
+        formData.append("media", selectedFile);
+        formData.append("isVideo", isVideo);
       }
 
-      const response = await fetch('http://localhost:3000/api/posts', {
-        method: 'POST',
+      const response = await fetch("http://localhost:3000/api/posts", {
+        method: "POST",
         headers: {
-          'Authorization': `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
         },
         body: formData,
       });
@@ -340,35 +354,36 @@ const PostSlide = ({ searchQuery }) => {
             author: {
               id: data.data.author._id,
               name: data.data.author.name,
-              username: `@${data.data.author.name.toLowerCase().replace(/\s+/g, '')}`,
-              profileImage: data.data.author.profileImage || ProfileData[0].profileImage,
+              username: `@${data.data.author.name.toLowerCase().replace(/\s+/g, "")}`,
+              profileImage:
+                data.data.author.profileImage || ProfileData[0].profileImage,
             },
             content: data.data.content,
             media: data.data.media,
             isVideo: data.data.isVideo,
             likes: data.data.likes.length,
-            comments: data.data.comments.map(comment => ({
+            comments: data.data.comments.map((comment) => ({
               id: comment._id,
               user: comment.user.name,
-              text: comment.text
+              text: comment.text,
             })),
             timestamp: new Date(data.data.createdAt).toLocaleDateString(),
           };
 
           // Add new post to the top of the list
           setPosts((prevPosts) => [newPost, ...prevPosts]);
-          
+
           // Emit a socket event to notify other clients about the new post
-          if (socket) {
-            socket.emit('new_post', newPost);
+          if (socket && socket.emit) {
+            socket.emit("new_post", newPost);
           }
         }
       } else {
-        setToast({ message: 'Failed to create post', type: 'error' });
+        setToast({ message: "Failed to create post", type: "error" });
       }
     } catch (error) {
-      console.error('Error creating post:', error);
-      setToast({ message: 'Error creating post', type: 'error' });
+      console.error("Error creating post:", error);
+      setToast({ message: "Error creating post", type: "error" });
     }
 
     setNewPost("");
@@ -383,18 +398,21 @@ const PostSlide = ({ searchQuery }) => {
     try {
       const token = user?.token;
       if (!token) {
-        setToast({ message: 'Please login to comment', type: 'error' });
+        setToast({ message: "Please login to comment", type: "error" });
         return;
       }
 
-      const response = await fetch(`http://localhost:3000/api/posts/${postId}/comments`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
+      const response = await fetch(
+        `http://localhost:3000/api/posts/${postId}/comments`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ text: comments[postId] }),
         },
-        body: JSON.stringify({ text: comments[postId] }),
-      });
+      );
 
       if (response.ok) {
         const data = await response.json();
@@ -402,9 +420,9 @@ const PostSlide = ({ searchQuery }) => {
           // Add new comment to local state immediately (Instagram-style)
           const newComment = {
             id: data.data._id,
-            user: userProfile?.name || 'You',
+            user: userProfile?.name || "You",
             text: comments[postId],
-            userId: currentUserId
+            userId: currentUserId,
           };
 
           setPosts((prevPosts) =>
@@ -414,23 +432,26 @@ const PostSlide = ({ searchQuery }) => {
                     ...post,
                     comments: [...post.comments, newComment],
                   }
-                : post
-            )
+                : post,
+            ),
           );
 
-          if (socket) {
-            socket.emit('new_comment', { postId, comments: [...post.comments, newComment] });
+          if (socket && socket.emit) {
+            socket.emit("new_comment", {
+              postId,
+              comments: [...post.comments, newComment],
+            });
           }
 
           // Auto-show comments when a new comment is added
           setShowComments((prev) => ({ ...prev, [postId]: true }));
         }
       } else {
-        setToast({ message: 'Failed to add comment', type: 'error' });
+        setToast({ message: "Failed to add comment", type: "error" });
       }
     } catch (error) {
-      console.error('Error adding comment:', error);
-      setToast({ message: 'Error adding comment', type: 'error' });
+      console.error("Error adding comment:", error);
+      setToast({ message: "Error adding comment", type: "error" });
     }
 
     setComments((prev) => ({ ...prev, [postId]: "" }));
@@ -443,7 +464,7 @@ const PostSlide = ({ searchQuery }) => {
   const handleShare = (friend, postId) => {
     const postToShare = posts.find((post) => post.id === postId);
     if (!postToShare) {
-      console.error('Post not found for sharing');
+      console.error("Post not found for sharing");
       return;
     }
 
@@ -452,29 +473,42 @@ const PostSlide = ({ searchQuery }) => {
       const sharedPostMessage = {
         id: Date.now(),
         text: `Shared a post`,
-        sender: 'me',
+        sender: "me",
         timestamp: new Date(),
-        status: 'sent',
-        messageType: 'shared_post',
-        postData: postToShare
+        status: "sent",
+        messageType: "shared_post",
+        postData: postToShare,
       };
 
       // Store the shared post in localStorage so Chat component can access it
-      const existingSharedMessages = JSON.parse(localStorage.getItem('sharedMessages') || '{}');
+      const existingSharedMessages = JSON.parse(
+        localStorage.getItem("sharedMessages") || "{}",
+      );
       const friendMessages = existingSharedMessages[friend.id] || [];
 
-      existingSharedMessages[friend.id] = [...friendMessages, sharedPostMessage];
-      localStorage.setItem('sharedMessages', JSON.stringify(existingSharedMessages));
+      existingSharedMessages[friend.id] = [
+        ...friendMessages,
+        sharedPostMessage,
+      ];
+      localStorage.setItem(
+        "sharedMessages",
+        JSON.stringify(existingSharedMessages),
+      );
 
       // Update the chat's last message to show the shared post
-      const existingChatData = JSON.parse(localStorage.getItem('chatData') || '{}');
+      const existingChatData = JSON.parse(
+        localStorage.getItem("chatData") || "{}",
+      );
       const activeChats = existingChatData.activeChats || [];
 
-      const friendChatIndex = activeChats.findIndex(chat => chat.id === friend.id);
+      const friendChatIndex = activeChats.findIndex(
+        (chat) => chat.id === friend.id,
+      );
       if (friendChatIndex !== -1) {
-        activeChats[friendChatIndex].lastMessage = `Shared: ${postToShare.content || 'Media post'}`;
-        activeChats[friendChatIndex].lastMessageTime = 'now';
-        localStorage.setItem('chatData', JSON.stringify(existingChatData));
+        activeChats[friendChatIndex].lastMessage =
+          `Shared: ${postToShare.content || "Media post"}`;
+        activeChats[friendChatIndex].lastMessageTime = "now";
+        localStorage.setItem("chatData", JSON.stringify(existingChatData));
       }
 
       // Update local state for immediate UI feedback
@@ -491,13 +525,13 @@ const PostSlide = ({ searchQuery }) => {
 
       setSharePostId(null);
     } catch (error) {
-      console.error('Error sharing post:', error);
+      console.error("Error sharing post:", error);
       // alert('Failed to share post. Please try again.');
     }
   };
 
   const handleEditPost = (postId) => {
-    const post = posts.find(p => p.id === postId);
+    const post = posts.find((p) => p.id === postId);
     if (post) {
       setEditingPostId(postId);
       setEditContent(post.content || "");
@@ -508,18 +542,21 @@ const PostSlide = ({ searchQuery }) => {
     try {
       const token = user?.token;
       if (!token) {
-        setToast({ message: 'Please login to edit posts', type: 'error' });
+        setToast({ message: "Please login to edit posts", type: "error" });
         return;
       }
 
-      const response = await fetch(`http://localhost:3000/api/posts/${postId}`, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
+      const response = await fetch(
+        `http://localhost:3000/api/posts/${postId}`,
+        {
+          method: "PUT",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ content: editContent }),
         },
-        body: JSON.stringify({ content: editContent }),
-      });
+      );
 
       if (response.ok) {
         const data = await response.json();
@@ -527,18 +564,18 @@ const PostSlide = ({ searchQuery }) => {
           // Update local state
           setPosts((prevPosts) =>
             prevPosts.map((post) =>
-              post.id === postId ? { ...post, content: editContent } : post
-            )
+              post.id === postId ? { ...post, content: editContent } : post,
+            ),
           );
           setEditingPostId(null);
           setEditContent("");
         }
       } else {
-        setToast({ message: 'Failed to edit post', type: 'error' });
+        setToast({ message: "Failed to edit post", type: "error" });
       }
     } catch (error) {
-      console.error('Error editing post:', error);
-      setToast({ message: 'Error editing post', type: 'error' });
+      console.error("Error editing post:", error);
+      setToast({ message: "Error editing post", type: "error" });
     }
   };
 
@@ -552,31 +589,36 @@ const PostSlide = ({ searchQuery }) => {
     try {
       const token = user?.token;
       if (!token) {
-        setToast({ message: 'Please login to delete posts', type: 'error' });
+        setToast({ message: "Please login to delete posts", type: "error" });
         return;
       }
 
-      const response = await fetch(`http://localhost:3000/api/posts/${deletePostId}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
+      const response = await fetch(
+        `http://localhost:3000/api/posts/${deletePostId}`,
+        {
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
         },
-      });
+      );
 
       if (response.ok) {
         const data = await response.json();
         if (data.success) {
           // Remove post from local state
-          setPosts((prevPosts) => prevPosts.filter((post) => post.id !== deletePostId));
+          setPosts((prevPosts) =>
+            prevPosts.filter((post) => post.id !== deletePostId),
+          );
           setDeletePostId(null);
         }
       } else {
-        setToast({ message: 'Failed to delete post', type: 'error' });
+        setToast({ message: "Failed to delete post", type: "error" });
       }
     } catch (error) {
-      console.error('Error deleting post:', error);
-      setToast({ message: 'Error deleting post', type: 'error' });
+      console.error("Error deleting post:", error);
+      setToast({ message: "Error deleting post", type: "error" });
     }
   };
 
@@ -584,17 +626,20 @@ const PostSlide = ({ searchQuery }) => {
     try {
       const token = user?.token;
       if (!token) {
-        setToast({ message: 'Please login to delete comments', type: 'error' });
+        setToast({ message: "Please login to delete comments", type: "error" });
         return;
       }
 
-      const response = await fetch(`http://localhost:3000/api/posts/${postId}/comments/${commentId}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
+      const response = await fetch(
+        `http://localhost:3000/api/posts/${postId}/comments/${commentId}`,
+        {
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
         },
-      });
+      );
 
       if (response.ok) {
         const data = await response.json();
@@ -605,18 +650,20 @@ const PostSlide = ({ searchQuery }) => {
               post.id === postId
                 ? {
                     ...post,
-                    comments: post.comments.filter((comment) => comment.id !== commentId),
+                    comments: post.comments.filter(
+                      (comment) => comment.id !== commentId,
+                    ),
                   }
-                : post
-            )
+                : post,
+            ),
           );
         }
       } else {
-        setToast({ message: 'Failed to delete comment', type: 'error' });
+        setToast({ message: "Failed to delete comment", type: "error" });
       }
     } catch (error) {
-      console.error('Error deleting comment:', error);
-      setToast({ message: 'Error deleting comment', type: 'error' });
+      console.error("Error deleting comment:", error);
+      setToast({ message: "Error deleting comment", type: "error" });
     }
   };
 
@@ -629,11 +676,16 @@ const PostSlide = ({ searchQuery }) => {
       [&::-webkit-scrollbar-thumb]:rounded-full
       [&::-webkit-scrollbar-thumb]:hover:bg-yellow-400/80"
     >
-      <Toast message={toast.message} type={toast.type} onClose={() => setToast({ message: '', type: '' })} />
+      <Toast
+        message={toast.message}
+        type={toast.type}
+        onClose={() => setToast({ message: "", type: "" })}
+      />
       {/*Upload Post Box */}
       <div className="bg-[#1A1A1A]/40 backdrop-blur-3xl p-3 sm:p-4 rounded-2xl space-y-3 sm:space-y-4">
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
-          {userProfile?.profileImage && userProfile.profileImage.trim() !== '' ? (
+          {userProfile?.profileImage &&
+          userProfile.profileImage.trim() !== "" ? (
             <img
               src={userProfile.profileImage}
               alt={userProfile.name}
@@ -724,7 +776,8 @@ const PostSlide = ({ searchQuery }) => {
           {/* User Info */}
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center">
-              {post.author.profileImage && post.author.profileImage.trim() !== '' ? (
+              {post.author.profileImage &&
+              post.author.profileImage.trim() !== "" ? (
                 <img
                   src={post.author.profileImage}
                   alt={post.author.username}
@@ -740,24 +793,36 @@ const PostSlide = ({ searchQuery }) => {
                 />
               )}
               <div className="ml-3">
-                <h2 className="font-semibold text-sm sm:text-base">{post.author.name}</h2>
-                <p className="text-gray-400 text-xs sm:text-sm">{post.timestamp}</p>
+                <h2 className="font-semibold text-sm sm:text-base">
+                  {post.author.name}
+                </h2>
+                <p className="text-gray-400 text-xs sm:text-sm">
+                  {post.timestamp}
+                </p>
               </div>
             </div>
             {post.author.id === currentUserId && (
               <div className="relative">
                 <button
-                  onClick={() => setShowComments((prev) => ({ ...prev, [post.id + '_menu']: !prev[post.id + '_menu'] }))}
+                  onClick={() =>
+                    setShowComments((prev) => ({
+                      ...prev,
+                      [post.id + "_menu"]: !prev[post.id + "_menu"],
+                    }))
+                  }
                   className="text-gray-400 hover:text-white"
                 >
                   <FaEllipsisV />
                 </button>
-                {showComments[post.id + '_menu'] && (
+                {showComments[post.id + "_menu"] && (
                   <div className="absolute right-0 mt-2 bg-[#2A2A2A] rounded-lg shadow-lg py-2 z-10">
                     <button
                       onClick={() => {
                         handleEditPost(post.id);
-                        setShowComments((prev) => ({ ...prev, [post.id + '_menu']: false }));
+                        setShowComments((prev) => ({
+                          ...prev,
+                          [post.id + "_menu"]: false,
+                        }));
                       }}
                       className="flex items-center gap-2 px-4 py-2 text-sm hover:bg-[#3A3A3A] w-full text-left"
                     >
@@ -766,7 +831,10 @@ const PostSlide = ({ searchQuery }) => {
                     <button
                       onClick={() => {
                         handleDeletePost(post.id);
-                        setShowComments((prev) => ({ ...prev, [post.id + '_menu']: false }));
+                        setShowComments((prev) => ({
+                          ...prev,
+                          [post.id + "_menu"]: false,
+                        }));
                       }}
                       className="flex items-center gap-2 px-4 py-2 text-sm hover:bg-[#3A3A3A] w-full text-left text-red-400"
                     >
@@ -807,7 +875,9 @@ const PostSlide = ({ searchQuery }) => {
               </div>
             </div>
           ) : (
-            post.content && <p className="mb-3 text-sm sm:text-base">{post.content}</p>
+            post.content && (
+              <p className="mb-3 text-sm sm:text-base">{post.content}</p>
+            )
           )}
 
           {/* Media */}
@@ -933,7 +1003,9 @@ const PostSlide = ({ searchQuery }) => {
                       alt={friend.name}
                       className="w-6 h-6 sm:w-8 sm:h-8 rounded-full"
                     />
-                    <p className="text-white text-xs sm:text-sm">{friend.name}</p>
+                    <p className="text-white text-xs sm:text-sm">
+                      {friend.name}
+                    </p>
                   </div>
                   <button
                     onClick={() => handleShare(friend, sharePostId)}
@@ -962,7 +1034,8 @@ const PostSlide = ({ searchQuery }) => {
               Delete Post
             </h2>
             <p className="text-gray-300 text-sm mb-4">
-              Are you sure you want to delete this post? This action cannot be undone.
+              Are you sure you want to delete this post? This action cannot be
+              undone.
             </p>
             <div className="flex gap-3 justify-end">
               <button
@@ -984,7 +1057,10 @@ const PostSlide = ({ searchQuery }) => {
 
       {/* Profile Image Modal */}
       {showProfileImage && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4" onClick={() => setShowProfileImage(null)}>
+        <div
+          className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4"
+          onClick={() => setShowProfileImage(null)}
+        >
           <div className="relative max-w-md max-h-screen">
             <img
               src={showProfileImage}
