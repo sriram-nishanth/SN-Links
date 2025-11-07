@@ -873,5 +873,416 @@ export const updateCoverImage = async (req, res) => {
   }
 };
 
+// Get user activity logs
+export const getActivityLogs = async (req, res) => {
+  try {
+    const userId = req.user._id;
+
+    const user = await User.findById(userId).select('activityLogs');
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found',
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: user.activityLogs || [],
+    });
+  } catch (error) {
+    console.error('Get activity logs error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching activity logs',
+    });
+  }
+};
+
+// Get user connected apps
+export const getConnectedApps = async (req, res) => {
+  try {
+    const userId = req.user._id;
+
+    const user = await User.findById(userId).select('connectedApps');
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found',
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: user.connectedApps || {},
+    });
+  } catch (error) {
+    console.error('Get connected apps error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching connected apps',
+    });
+  }
+};
+
+// Update user connected apps
+export const updateConnectedApps = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const { apps } = req.body;
+
+    if (!apps || typeof apps !== 'object') {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid apps data',
+      });
+    }
+
+    const updatedUser = await User.findByIdAndUpdate(
+      userId,
+      { connectedApps: apps },
+      { new: true }
+    ).select('connectedApps');
+
+    if (!updatedUser) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found',
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Connected apps updated successfully',
+      data: updatedUser.connectedApps,
+    });
+  } catch (error) {
+    console.error('Update connected apps error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error updating connected apps',
+    });
+  }
+};
+
+// Get user language setting
+export const getLanguage = async (req, res) => {
+  try {
+    const userId = req.user._id;
+
+    const user = await User.findById(userId).select('language');
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found',
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: { language: user.language || 'en' },
+    });
+  } catch (error) {
+    console.error('Get language error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching language setting',
+    });
+  }
+};
+
+// Update user language setting
+export const updateLanguage = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const { language } = req.body;
+
+    if (!language || typeof language !== 'string') {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid language',
+      });
+    }
+
+    const updatedUser = await User.findByIdAndUpdate(
+      userId,
+      { language },
+      { new: true }
+    ).select('language');
+
+    if (!updatedUser) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found',
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Language updated successfully',
+      data: { language: updatedUser.language },
+    });
+  } catch (error) {
+    console.error('Update language error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error updating language',
+    });
+  }
+};
+
+// Get user privacy settings
+export const getPrivacySettings = async (req, res) => {
+  try {
+    const userId = req.user._id;
+
+    const user = await User.findById(userId).select('privacySettings');
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found',
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: user.privacySettings || {
+        privateAccount: false,
+        showActivityStatus: true,
+        twoFactorAuth: { useAuthApp: true, useSms: true }
+      },
+    });
+  } catch (error) {
+    console.error('Get privacy settings error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching privacy settings',
+    });
+  }
+};
+
+// Update user privacy settings
+export const updatePrivacySettings = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const { setting, value } = req.body;
+
+    if (!setting) {
+      return res.status(400).json({
+        success: false,
+        message: 'Setting key is required',
+      });
+    }
+
+    const updatePath = `privacySettings.${setting}`;
+    const updateObj = { [updatePath]: value };
+
+    const updatedUser = await User.findByIdAndUpdate(
+      userId,
+      updateObj,
+      { new: true }
+    ).select('privacySettings');
+
+    if (!updatedUser) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found',
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Privacy settings updated successfully',
+      data: updatedUser.privacySettings,
+    });
+  } catch (error) {
+    console.error('Update privacy settings error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error updating privacy settings',
+    });
+  }
+};
+
+// Get user notifications setting
+export const getNotifications = async (req, res) => {
+  try {
+    const userId = req.user._id;
+
+    const user = await User.findById(userId).select('notificationsEnabled');
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found',
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: { enabled: user.notificationsEnabled ?? true },
+    });
+  } catch (error) {
+    console.error('Get notifications error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching notifications setting',
+    });
+  }
+};
+
+// Update user notifications setting
+export const updateNotifications = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const { enabled } = req.body;
+
+    if (typeof enabled !== 'boolean') {
+      return res.status(400).json({
+        success: false,
+        message: 'Enabled must be a boolean',
+      });
+    }
+
+    const updatedUser = await User.findByIdAndUpdate(
+      userId,
+      { notificationsEnabled: enabled },
+      { new: true }
+    ).select('notificationsEnabled');
+
+    if (!updatedUser) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found',
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Notifications setting updated successfully',
+      data: { enabled: updatedUser.notificationsEnabled },
+    });
+  } catch (error) {
+    console.error('Update notifications error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error updating notifications setting',
+    });
+  }
+};
+
+// Update user password
+export const updatePassword = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const { newPassword } = req.body;
+
+    if (!newPassword || newPassword.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: 'Password must be at least 6 characters long',
+      });
+    }
+
+    // Hash the new password
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(newPassword, salt);
+
+    const updatedUser = await User.findByIdAndUpdate(
+      userId,
+      { password: hashedPassword },
+      { new: true }
+    ).select('_id');
+
+    if (!updatedUser) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found',
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Password updated successfully',
+    });
+  } catch (error) {
+    console.error('Update password error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error updating password',
+    });
+  }
+};
+
+// Delete user account
+export const deleteUser = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const { password } = req.body;
+
+    // Find user
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    // Verify password for non-Google users
+    if (user.provider !== "google" && user.password) {
+      if (!password) {
+        return res.status(400).json({
+          success: false,
+          message: "Password is required to delete account",
+        });
+      }
+
+      const isPasswordValid = await bcrypt.compare(password, user.password);
+      if (!isPasswordValid) {
+        return res.status(401).json({
+          success: false,
+          message: "Invalid password",
+        });
+      }
+    }
+
+    // Import models for cleanup
+    const Post = (await import("../models/post.js")).default;
+    const Message = (await import("../models/message.js")).default;
+
+    // Delete user's posts
+    await Post.deleteMany({ author: userId });
+
+    // Delete messages where user is sender or receiver
+    await Message.deleteMany({
+      $or: [{ sender: userId }, { receiver: userId }],
+    });
+
+    // Remove user from other users' following/followers lists
+    await User.updateMany(
+      { following: userId },
+      { $pull: { following: userId } }
+    );
+    await User.updateMany(
+      { followers: userId },
+      { $pull: { followers: userId } }
+    );
+
+    // Delete the user
+    await User.findByIdAndDelete(userId);
+
+    res.status(200).json({
+      success: true,
+      message: "Account deleted successfully",
+    });
+  } catch (error) {
+    console.error("Delete user error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error deleting account",
+    });
+  }
+};
+
 // Export multer upload middleware for use in routes
 export { upload };

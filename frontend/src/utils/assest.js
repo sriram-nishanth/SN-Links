@@ -13,7 +13,7 @@ import profilePic1 from "../assets/Frame.png";
 import profilePic2 from "../assets/icon.png";
 import postImg1 from "../assets/Login.png";
 import postImg2 from "../assets/google.png";
-import { BsPerson, BsGlobe, BsKey, BsClockHistory, BsShieldLock, BsThreeDots, BsBoxArrowRight } from 'react-icons/bs';
+import { BsPerson, BsGlobe, BsKey, BsClockHistory, BsShieldLock, BsThreeDots, BsBoxArrowRight, BsTrash } from 'react-icons/bs';
 import Sample from '../assets/video.mp4'
 
 // import profile1 from "../assets/friend1.png";
@@ -332,6 +332,7 @@ export const menu = [
   { id: 5, labelKey: 'settings.privacySecurity', icon: BsShieldLock },
   { id: 6, labelKey: 'settings.others', icon: BsThreeDots },
   { id: 7, labelKey: 'settings.logOut', icon: BsBoxArrowRight },
+  { id: 8, labelKey: 'settings.deleteAccount', icon: BsTrash },
 ];
 
 export const generateDummyProfile = (userId) => {

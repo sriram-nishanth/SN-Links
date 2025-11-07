@@ -6,8 +6,12 @@ import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import Toast from "../Components/Toast";
 import { useUser } from "../Context/UserContext";
+import Avatar from "../Components/Avatar";
+import axios from "axios";
 
 const Setting = () => {
+  const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3000/api";
+
   const [selected, setSelected] = useState(1);
   const [languageKey, setLanguageKey] = useState(Date.now());
   const [selectedLanguage, setSelectedLanguage] = useState("en");
@@ -18,6 +22,15 @@ const Setting = () => {
   const SelectedIcon = menu.find((m) => m.id === selected)?.icon;
   const { user, updateUser, logout } = useUser();
 
+  // Get token helper
+  const getToken = () => {
+    const token = document.cookie
+      .split("; ")
+      .find((row) => row.startsWith("token="))
+      ?.split("=")[1];
+    return token;
+  };
+
   // Image upload states
   const [profileImagePreview, setProfileImagePreview] = useState(null);
   const [coverImagePreview, setCoverImagePreview] = useState(null);
@@ -27,13 +40,21 @@ const Setting = () => {
   const profileImageRef = useRef(null);
   const coverImageRef = useRef(null);
   const [toast, setToast] = useState({ message: "", type: "" });
+   const [hasChanges, setHasChanges] = useState(false);
+   const [initialProfile, setInitialProfile] = useState({
+     fullName: "",
+     username: "",
+   email: "",
+   bio: "",
+   });
 
-  // Profile state
-  const [profile, setProfile] = useState({
-    fullName: "",
-    username: "",
-    bio: "",
-  });
+   // Profile state
+   const [profile, setProfile] = useState({
+     fullName: "",
+     username: "",
+     email: "",
+     bio: "",
+   });
 
   // Connected apps state
   const [connectedApps, setConnectedApps] = useState({
@@ -67,64 +88,237 @@ const Setting = () => {
   // Notifications state
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
 
+  // Delete account state
+  const [deletePassword, setDeletePassword] = useState("");
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
+
   // Loading state for profile save
   const [isSavingProfile, setIsSavingProfile] = useState(false);
 
+  // Loading state for settings fetch
+  const [isLoadingSettings, setIsLoadingSettings] = useState(true);
+
+  // Detect changes in profile
+  useEffect(() => {
+    const changed = JSON.stringify(profile) !== JSON.stringify(initialProfile);
+    setHasChanges(changed);
+  }, [profile, initialProfile]);
+
   // Load data from backend on component mount
   useEffect(() => {
-    const fetchUserProfile = async () => {
-      try {
-        const token = user?.token;
-        if (!token) {
-          return;
+  const fetchUserProfile = async () => {
+  try {
+  const token = user?.token;
+  if (!token) {
+  console.error("No user token for profile fetch");
+    return;
         }
 
-        const response = await fetch("http://localhost:3000/api/user/profile", {
-          method: "GET",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        });
+  const response = await fetch(`${API_BASE_URL}/user/profile`, {
+  method: "GET",
+  headers: {
+  Authorization: `Bearer ${token}`,
+    "Content-Type": "application/json",
+    },
+          credentials: "include",
+  });
 
-        if (response.ok) {
-          const data = await response.json();
-          if (data.success) {
-            setProfile({
-              fullName: data.data.name || "",
-              username:
-                `@${data.data.name.toLowerCase().replace(/\s+/g, "")}` || "",
-              bio: data.data.bio || "",
-            });
-          }
-        }
-      } catch (error) {
+  if (response.ok) {
+    const data = await response.json();
+    if (data.success) {
+      const initialProfile = {
+        fullName: data.data.name || "",
+        username: `@${data.data.name.toLowerCase().replace(/\s+/g, "")}` || "",
+        email: data.data.email || "",
+      bio: data.data.bio || "",
+  };
+  setProfile(initialProfile);
+    setInitialProfile(initialProfile);
+    }
+    } else {
+    console.error("Profile fetch failed:", response.status, await response.text());
+    }
+    } catch (error) {
         console.error("Error fetching user profile:", error);
-      }
+    }
     };
 
-    fetchUserProfile();
+  fetchUserProfile();
 
-    const savedConnectedApps = localStorage.getItem("connectedApps");
-    if (savedConnectedApps) {
-      setConnectedApps(JSON.parse(savedConnectedApps));
-    }
+  // Fetch all settings in parallel
+  const fetchSettings = async () => {
+  const token = getToken();
+  if (!token) {
+  console.error("No token found for settings fetch");
+  setIsLoadingSettings(false);
+  // Load from localStorage
+  const activityLogs = localStorage.getItem("activityLogs");
+  if (activityLogs) setActivityLogs(JSON.parse(activityLogs));
 
-    const savedPrivacySettings = localStorage.getItem("privacySettings");
-    if (savedPrivacySettings) {
-      setPrivacySettings(JSON.parse(savedPrivacySettings));
-    }
+    const privacy = localStorage.getItem("privacySettings");
+    if (privacy) setPrivacySettings(JSON.parse(privacy));
 
-    const savedNotifications = localStorage.getItem("notificationsEnabled");
-    if (savedNotifications !== null) {
-      setNotificationsEnabled(JSON.parse(savedNotifications));
-    }
+    const notifications = localStorage.getItem("notificationsEnabled");
+      if (notifications !== null) setNotificationsEnabled(JSON.parse(notifications));
 
-    const savedActivityLogs = localStorage.getItem("activityLogs");
-    if (savedActivityLogs) {
-      setActivityLogs(JSON.parse(savedActivityLogs));
-    }
-  }, []);
+      const apps = localStorage.getItem("connectedApps");
+    if (apps) setConnectedApps(JSON.parse(apps));
+
+  setSelectedLanguage(i18n.language || "en");
+  return;
+  }
+
+  const settingsPromises = [
+  fetch(`${API_BASE_URL}/user/activity`, {
+  headers: { Authorization: `Bearer ${token}` },
+  credentials: "include",
+  }).then(async (res) => {
+  if (res.ok) {
+  const data = await res.json();
+  if (data.success) return { type: "activity", data: data.data || [] };
+  } else {
+  console.error("Activity fetch failed:", res.status, await res.text());
+  }
+  return null;
+  }).catch((error) => {
+  console.error("Activity fetch error:", error);
+  return null;
+  }),
+
+  fetch(`${API_BASE_URL}/user/privacy`, {
+  headers: { Authorization: `Bearer ${token}` },
+  credentials: "include",
+  }).then(async (res) => {
+  if (res.ok) {
+  const data = await res.json();
+  if (data.success) return { type: "privacy", data: data.data };
+  } else {
+  console.error("Privacy fetch failed:", res.status, await res.text());
+  }
+  return null;
+  }).catch((error) => {
+  console.error("Privacy fetch error:", error);
+  return null;
+  }),
+
+  fetch(`${API_BASE_URL}/user/notifications`, {
+  headers: { Authorization: `Bearer ${token}` },
+  credentials: "include",
+  }).then(async (res) => {
+  if (res.ok) {
+  const data = await res.json();
+  if (data.success) return { type: "notifications", data: data.data?.enabled ?? true };
+  } else {
+  console.error("Notifications fetch failed:", res.status, await res.text());
+  }
+  return null;
+  }).catch((error) => {
+  console.error("Notifications fetch error:", error);
+  return null;
+  }),
+
+  fetch(`${API_BASE_URL}/user/apps`, {
+  headers: { Authorization: `Bearer ${token}` },
+  credentials: "include",
+  }).then(async (res) => {
+  if (res.ok) {
+  const data = await res.json();
+  if (data.success) return { type: "apps", data: data.data };
+  } else {
+  console.error("Apps fetch failed:", res.status, await res.text());
+  }
+  return null;
+  }).catch((error) => {
+  console.error("Apps fetch error:", error);
+  return null;
+  }),
+
+  fetch(`${API_BASE_URL}/user/language`, {
+  headers: { Authorization: `Bearer ${token}` },
+  credentials: "include",
+  }).then(async (res) => {
+  if (res.ok) {
+  const data = await res.json();
+  if (data.success) return { type: "language", data: data.data?.language || i18n.language };
+  } else {
+  console.error("Language fetch failed:", res.status, await res.text());
+  }
+  return null;
+  }).catch((error) => {
+  console.error("Language fetch error:", error);
+  return null;
+  }),
+  ];
+
+      try {
+        const results = await Promise.all(settingsPromises);
+        results.forEach((result) => {
+          if (result) {
+            switch (result.type) {
+              case "activity":
+                setActivityLogs(result.data);
+                break;
+              case "privacy":
+                setPrivacySettings(result.data);
+                break;
+              case "notifications":
+                setNotificationsEnabled(result.data);
+                break;
+              case "apps":
+                setConnectedApps(result.data);
+                break;
+              case "language":
+                setSelectedLanguage(result.data);
+                break;
+            }
+          } else {
+            // Fallback to localStorage
+            switch (result?.type) {
+              case "activity":
+                const activityLogs = localStorage.getItem("activityLogs");
+                if (activityLogs) setActivityLogs(JSON.parse(activityLogs));
+                break;
+              case "privacy":
+                const privacy = localStorage.getItem("privacySettings");
+                if (privacy) setPrivacySettings(JSON.parse(privacy));
+                break;
+              case "notifications":
+                const notifications = localStorage.getItem("notificationsEnabled");
+                if (notifications !== null) setNotificationsEnabled(JSON.parse(notifications));
+                break;
+              case "apps":
+                const apps = localStorage.getItem("connectedApps");
+                if (apps) setConnectedApps(JSON.parse(apps));
+                break;
+              case "language":
+                setSelectedLanguage(i18n.language || "en");
+                break;
+            }
+          }
+        });
+      } catch (error) {
+        console.error("Error fetching settings:", error);
+        // Load all from localStorage
+        const activityLogs = localStorage.getItem("activityLogs");
+        if (activityLogs) setActivityLogs(JSON.parse(activityLogs));
+
+        const privacy = localStorage.getItem("privacySettings");
+        if (privacy) setPrivacySettings(JSON.parse(privacy));
+
+        const notifications = localStorage.getItem("notificationsEnabled");
+        if (notifications !== null) setNotificationsEnabled(JSON.parse(notifications));
+
+        const apps = localStorage.getItem("connectedApps");
+        if (apps) setConnectedApps(JSON.parse(apps));
+
+        setSelectedLanguage(i18n.language || "en");
+      }
+
+      setIsLoadingSettings(false);
+    };
+
+    fetchSettings();
+  }, [user, i18n.language]);
 
   // Initialize selected language with current i18n language
   useEffect(() => {
@@ -158,9 +352,34 @@ const Setting = () => {
     console.log("Language change initiated:", language);
   };
 
-  const handleSaveLanguage = () => {
+  const handleSaveLanguage = async () => {
     if (selectedLanguage !== i18n.language) {
-      handleLanguageChange(selectedLanguage);
+      try {
+        const token = getToken();
+        if (token) {
+          const response = await fetch(`${API_BASE_URL}/user/language`, {
+            method: "PUT",
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ language: selectedLanguage }),
+            credentials: "include",
+          });
+          if (!response.ok) {
+            console.error("Language update failed:", response.status, await response.text());
+            setToast({ type: "error", message: "Failed to update language!" });
+          } else {
+            handleLanguageChange(selectedLanguage);
+            setToast({ type: "success", message: "Language updated successfully!" });
+          }
+        }
+      } catch (error) {
+        console.error("Error updating language:", error);
+        setToast({ type: "error", message: "Error updating language!" });
+      }
+
+      setTimeout(() => setToast({ type: "", message: "" }), 3000);
     }
   };
 
@@ -180,13 +399,13 @@ const Setting = () => {
   const handleSaveProfile = async () => {
     setIsSavingProfile(true);
     try {
-      const token = user?.token;
+      const token = getToken();
       if (!token) {
         setToast({ type: "error", message: "Authentication required!" });
         return;
       }
 
-      const response = await fetch("http://localhost:3000/api/user/profile", {
+      const response = await fetch(`${API_BASE_URL}/user/profile`, {
         method: "PUT",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -194,6 +413,7 @@ const Setting = () => {
         },
         body: JSON.stringify({
           name: profile.fullName,
+          email: profile.email,
           bio: profile.bio,
         }),
       });
@@ -202,11 +422,14 @@ const Setting = () => {
 
       if (response.ok && data.success) {
         // Update local state with the response data
-        setProfile({
-          fullName: data.data.name,
-          username: `@${data.data.name.toLowerCase().replace(/\s+/g, "")}`,
+        const updatedProfile = {
+        fullName: data.data.name,
+        username: `@${data.data.name.toLowerCase().replace(/\s+/g, "")}`,
+        email: data.data.email || profile.email,
           bio: data.data.bio,
-        });
+        };
+        setProfile(updatedProfile);
+        setInitialProfile(updatedProfile);
         // Update localStorage with fresh user data
         localStorage.setItem("user", JSON.stringify(data.data));
         // Dispatch event to notify AccountSlide to refresh
@@ -232,80 +455,210 @@ const Setting = () => {
   };
 
   // Connected apps handler
-  const handleConnectApp = (app) => {
-    const updatedApps = { ...connectedApps, [app]: !connectedApps[app] };
+  const handleConnectApp = async (app) => {
+  const updatedApps = { ...connectedApps, [app]: !connectedApps[app] };
     setConnectedApps(updatedApps);
     localStorage.setItem("connectedApps", JSON.stringify(updatedApps));
-    addActivityLog(`${app} ${updatedApps[app] ? "connected" : "disconnected"}`);
-    setToast({
-      type: "success",
-      message: `${app} ${
-        updatedApps[app] ? "connected" : "disconnected"
-      } successfully!`,
-    });
+
+    try {
+      const token = getToken();
+      if (token) {
+        const response = await fetch(`${API_BASE_URL}/user/apps`, {
+          method: "PUT",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ apps: updatedApps }),
+          credentials: "include",
+        });
+        if (!response.ok) {
+          console.error("Apps update failed:", response.status, await response.text());
+          setToast({ type: "error", message: `Failed to ${updatedApps[app] ? "connect" : "disconnect"} ${app}!` });
+        } else {
+          addActivityLog(`${app} ${updatedApps[app] ? "connected" : "disconnected"}`);
+          setToast({
+            type: "success",
+            message: `${app} ${updatedApps[app] ? "connected" : "disconnected"} successfully!`,
+          });
+        }
+      }
+    } catch (error) {
+      console.error("Error updating apps:", error);
+      setToast({ type: "error", message: `Error ${updatedApps[app] ? "connecting" : "disconnecting"} ${app}!` });
+    }
+
     setTimeout(() => setToast({ type: "", message: "" }), 3000);
   };
 
   // New app handler
-  const handleConnectNewApp = () => {
-    if (!newAppName.trim()) {
-      setToast({ type: "error", message: "Please enter an app name!" });
-      setTimeout(() => setToast({ type: "", message: "" }), 3000);
-      return;
-    }
+  const handleConnectNewApp = async () => {
+  if (!newAppName.trim()) {
+  setToast({ type: "error", message: "Please enter an app name!" });
+  setTimeout(() => setToast({ type: "", message: "" }), 3000);
+  return;
+  }
 
-    const updatedApps = { ...connectedApps, [newAppName.toLowerCase()]: true };
+  const updatedApps = { ...connectedApps, [newAppName.toLowerCase()]: true };
     setConnectedApps(updatedApps);
     localStorage.setItem("connectedApps", JSON.stringify(updatedApps));
-    addActivityLog(`${newAppName} connected`);
-    setToast({
-      type: "success",
-      message: `${newAppName} connected successfully!`,
-    });
-    setTimeout(() => setToast({ type: "", message: "" }), 3000);
+
+    try {
+      const token = getToken();
+      if (token) {
+        const response = await fetch(`${API_BASE_URL}/user/apps`, {
+          method: "PUT",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ apps: updatedApps }),
+          credentials: "include",
+        });
+        if (!response.ok) {
+          console.error("New app connect failed:", response.status, await response.text());
+          setToast({ type: "error", message: `Failed to connect ${newAppName}!` });
+        } else {
+          addActivityLog(`${newAppName} connected`);
+          setToast({
+            type: "success",
+            message: `${newAppName} connected successfully!`,
+          });
+          setNewAppName("");
+          setShowNewAppModal(false);
+        }
+      }
+    } catch (error) {
+      console.error("Error connecting new app:", error);
+      setToast({ type: "error", message: `Error connecting ${newAppName}!` });
+    }
     setNewAppName("");
     setShowNewAppModal(false);
+    setTimeout(() => setToast({ type: "", message: "" }), 3000);
   };
 
   // Password change handler
-  const handleChangePassword = () => {
-    if (passwordData.newPassword !== passwordData.retypePassword) {
-      setToast({ type: "error", message: "Passwords do not match!" });
-      setTimeout(() => setToast({ type: "", message: "" }), 3000);
+  const handleChangePassword = async () => {
+  if (passwordData.newPassword !== passwordData.retypePassword) {
+  setToast({ type: "error", message: "Passwords do not match!" });
+  setTimeout(() => setToast({ type: "", message: "" }), 3000);
+  return;
+  }
+  if (passwordData.newPassword.length < 6) {
+  setToast({
+  type: "error",
+  message: "Password must be at least 6 characters!",
+  });
+  setTimeout(() => setToast({ type: "", message: "" }), 3000);
+  return;
+  }
+
+  try {
+  const token = getToken();
+  if (!token) {
+      setToast({ type: "error", message: "Authentication required!" });
       return;
     }
-    if (passwordData.newPassword.length < 6) {
+
+    const response = await fetch(`${API_BASE_URL}/user/password`, {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          newPassword: passwordData.newPassword,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        addActivityLog("Password changed");
+        setPasswordData({ newPassword: "", retypePassword: "" });
+        setToast({ type: "success", message: "Password changed successfully!" });
+      } else {
+        setToast({
+          type: "error",
+          message: data.message || "Failed to change password!",
+        });
+      }
+    } catch (error) {
+      console.error("Error changing password:", error);
       setToast({
         type: "error",
-        message: "Password must be at least 6 characters!",
+        message: "Error changing password. Please try again.",
       });
+    } finally {
       setTimeout(() => setToast({ type: "", message: "" }), 3000);
-      return;
     }
-    // Simulate password change
-    localStorage.setItem(
-      "passwordChanged",
-      JSON.stringify({ timestamp: new Date().toISOString() })
-    );
-    addActivityLog("Password changed");
-    setPasswordData({ newPassword: "", retypePassword: "" });
-    setToast({ type: "success", message: "Password changed successfully!" });
-    setTimeout(() => setToast({ type: "", message: "" }), 3000);
   };
 
   // Privacy settings handler
-  const handlePrivacyChange = (setting, value) => {
+  const handlePrivacyChange = async (setting, value) => {
     const updatedSettings = { ...privacySettings, [setting]: value };
     setPrivacySettings(updatedSettings);
     localStorage.setItem("privacySettings", JSON.stringify(updatedSettings));
-    addActivityLog(`Privacy setting updated: ${setting}`);
+
+    try {
+      const token = getToken();
+      if (token) {
+        const response = await fetch(`${API_BASE_URL}/user/privacy`, {
+          method: "PUT",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ setting, value }),
+          credentials: "include",
+        });
+        if (!response.ok) {
+          console.error("Privacy update failed:", response.status, await response.text());
+          setToast({ type: "error", message: "Failed to update privacy settings!" });
+        } else {
+          addActivityLog(`Privacy setting updated: ${setting}`);
+          setToast({ type: "success", message: "Privacy settings updated!" });
+        }
+      }
+    } catch (error) {
+      console.error("Error updating privacy settings:", error);
+      setToast({ type: "error", message: "Error updating privacy settings!" });
+    }
+
+    setTimeout(() => setToast({ type: "", message: "" }), 3000);
   };
 
   // Notifications handler
-  const handleNotificationsChange = (enabled) => {
+  const handleNotificationsChange = async (enabled) => {
     setNotificationsEnabled(enabled);
     localStorage.setItem("notificationsEnabled", JSON.stringify(enabled));
-    addActivityLog(`Notifications ${enabled ? "enabled" : "disabled"}`);
+
+    try {
+      const token = getToken();
+      if (token) {
+        const response = await fetch(`${API_BASE_URL}/user/notifications`, {
+          method: "PUT",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ enabled }),
+          credentials: "include",
+        });
+        if (!response.ok) {
+          console.error("Notifications update failed:", response.status, await response.text());
+          setToast({ type: "error", message: "Failed to update notifications!" });
+        } else {
+          addActivityLog(`Notifications ${enabled ? "enabled" : "disabled"}`);
+          setToast({ type: "success", message: "Notification settings updated!" });
+        }
+      }
+    } catch (error) {
+      console.error("Error updating notifications:", error);
+      setToast({ type: "error", message: "Error updating notifications!" });
+    }
+
+    setTimeout(() => setToast({ type: "", message: "" }), 3000);
   };
 
   // Logout handler
@@ -328,6 +681,59 @@ const Setting = () => {
       // Force navigation even if logout fails
       navigate("/login", { replace: true });
     }
+  };
+
+  // Delete account handler
+  const handleDeleteAccount = async () => {
+    if (!window.confirm(t("settings.confirmDeleteAccount"))) {
+      return;
+    }
+
+    setIsDeletingAccount(true);
+    try {
+      const token = getToken();
+      if (!token) {
+        setToast({ type: "error", message: "Authentication required!" });
+        return;
+      }
+
+      const response = await fetch(`${API_BASE_URL}/user/delete`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          password: deletePassword,
+        }),
+        credentials: "include",
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        setToast({ type: "success", message: "Account deleted successfully!" });
+        setTimeout(() => {
+          // Perform logout and redirect
+          logout();
+          navigate("/login", { replace: true });
+        }, 2000);
+      } else {
+        setToast({
+          type: "error",
+          message: data.message || "Failed to delete account!",
+        });
+      }
+    } catch (error) {
+      console.error("Error deleting account:", error);
+      setToast({
+        type: "error",
+        message: "Error deleting account. Please try again.",
+      });
+    } finally {
+      setIsDeletingAccount(false);
+    }
+    setTimeout(() => setToast({ type: "", message: "" }), 3000);
   };
 
   // Image upload handlers
@@ -372,7 +778,12 @@ const Setting = () => {
   const uploadImage = async (file, type) => {
     setUploadingImage(true);
     try {
-      const token = user?.token;
+      const token = getToken();
+      if (!token) {
+        setToast({ type: "error", message: "Authentication required!" });
+        return;
+      }
+
       const formData = new FormData();
       formData.append(type === "profile" ? "profileImage" : "coverImage", file);
 
@@ -547,14 +958,11 @@ const Setting = () => {
                     </span>
                     <div className="flex items-center gap-4">
                       <div className="relative">
-                        <img
-                          src={
-                            profileImagePreview ||
-                            user?.profileImage ||
-                            "/default-avatar.png"
-                          }
-                          alt="Profile"
-                          className="w-16 h-16 sm:w-20 sm:h-20 rounded-full object-cover border-2 border-yellow-400"
+                        <Avatar
+                        image={profileImagePreview || user?.profileImage}
+                        username={profile.username}
+                        size="w-16 h-16 sm:w-20 sm:h-20"
+                        className="border-2 border-yellow-400"
                         />
                         {uploadingImage && currentImageType === "profile" && (
                           <div className="absolute inset-0 bg-black/50 rounded-full flex items-center justify-center">
@@ -623,23 +1031,39 @@ const Setting = () => {
                     </label>
                   </div>
                   <div className="space-y-2">
-                    <label className="flex flex-col">
-                      <span className="text-white mb-2 text-sm sm:text-base md:text-md font-medium">
-                        {t("settings.username")}
-                      </span>
-                      <input
-                        type="text"
-                        value={profile.username}
-                        onChange={(e) =>
-                          setProfile({ ...profile, username: e.target.value })
-                        }
-                        placeholder={
-                          profile.username || t("settings.enterUsername")
-                        }
-                        className="bg-[#232323] text-white rounded-lg px-4 sm:px-5 py-3 sm:py-4 text-sm sm:text-base md:text-md outline-none focus:ring-2 focus:ring-yellow-400 transition-all min-h-[48px] sm:min-h-[52px]"
-                      />
-                    </label>
+                  <label className="flex flex-col">
+                  <span className="text-white mb-2 text-sm sm:text-base md:text-md font-medium">
+                  {t("settings.username")}
+                  </span>
+                  <input
+                  type="text"
+                  value={profile.username}
+                  onChange={(e) =>
+                  setProfile({ ...profile, username: e.target.value })
+                  }
+                  placeholder={
+                  profile.username || t("settings.enterUsername")
+                  }
+                  className="bg-[#232323] text-white rounded-lg px-4 sm:px-5 py-3 sm:py-4 text-sm sm:text-base md:text-md outline-none focus:ring-2 focus:ring-yellow-400 transition-all min-h-[48px] sm:min-h-[52px]"
+                  />
+                  </label>
                   </div>
+                   <div className="space-y-2">
+                     <label className="flex flex-col">
+                       <span className="text-white mb-2 text-sm sm:text-base md:text-md font-medium">
+                         Email
+                       </span>
+                       <input
+                         type="email"
+                         value={profile.email}
+                         onChange={(e) =>
+                           setProfile({ ...profile, email: e.target.value })
+                         }
+                         placeholder="Enter your email"
+                         className="bg-[#232323] text-white rounded-lg px-4 sm:px-5 py-3 sm:py-4 text-sm sm:text-base md:text-md outline-none focus:ring-2 focus:ring-yellow-400 transition-all min-h-[48px] sm:min-h-[52px]"
+                       />
+                     </label>
+                   </div>
                   <div className="space-y-2">
                     <label className="flex flex-col">
                       <span className="text-white mb-2 text-sm sm:text-base md:text-md font-medium">
@@ -662,11 +1086,11 @@ const Setting = () => {
               </div>
               <div className="flex justify-end pt-2 sm:pt-4">
                 <button
-                  onClick={handleSaveProfile}
-                  disabled={isSavingProfile}
-                  className="bg-yellow-400 text-black font-semibold px-6 sm:px-8 py-3 sm:py-4 rounded-lg hover:bg-yellow-500 transition-all text-sm sm:text-base md:text-md min-h-[48px] sm:min-h-[52px] shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
+                onClick={handleSaveProfile}
+                disabled={isSavingProfile || !hasChanges}
+                className="bg-yellow-400 text-black font-semibold px-6 sm:px-8 py-3 sm:py-4 rounded-lg hover:bg-yellow-500 transition-all text-sm sm:text-base md:text-md min-h-[48px] sm:min-h-[52px] shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {isSavingProfile ? "Saving..." : t("common.save")}
+                {isSavingProfile ? "Saving..." : t("common.save")}
                 </button>
               </div>
             </section>
@@ -806,31 +1230,37 @@ const Setting = () => {
                 <h3 className="text-white text-md sm:text-xl lg:text-xl font-semibold mb-3 sm:mb-4 lg:mb-5">
                   {t("settings.accountLog")}
                 </h3>
-                <div className="bg-[#232323] rounded-lg p-4 sm:p-5 md:p-6 text-gray-400 text-sm sm:text-base md:text-md">
-                  <div className="space-y-3 sm:space-y-4">
-                    {activityLogs.length > 0 ? (
-                      activityLogs.map((log, index) => (
-                        <div
-                          key={log.id}
-                          className={`flex items-center justify-between py-2 ${
-                            index < activityLogs.length - 1
-                              ? "border-b border-gray-600/30"
-                              : ""
-                          }`}
-                        >
-                          <span className="font-medium">{log.action}</span>
-                          <span className="text-xs sm:text-sm text-gray-500">
-                            {new Date(log.timestamp).toLocaleString()}
-                          </span>
-                        </div>
-                      ))
-                    ) : (
-                      <div className="text-center py-4 text-gray-500">
-                        {t("settings.noActivityLogs")}
-                      </div>
-                    )}
+                {isLoadingSettings ? (
+                  <div className="bg-[#232323] rounded-lg p-4 sm:p-5 md:p-6 flex justify-center">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-yellow-400"></div>
                   </div>
-                </div>
+                ) : (
+                  <div className="bg-[#232323] rounded-lg p-4 sm:p-5 md:p-6 text-gray-400 text-sm sm:text-base md:text-md">
+                    <div className="space-y-3 sm:space-y-4">
+                      {activityLogs.length > 0 ? (
+                        activityLogs.map((log, index) => (
+                          <div
+                            key={log.id}
+                            className={`flex items-center justify-between py-2 ${
+                              index < activityLogs.length - 1
+                                ? "border-b border-gray-600/30"
+                                : ""
+                            }`}
+                          >
+                            <span className="font-medium">{log.action}</span>
+                            <span className="text-xs sm:text-sm text-gray-500">
+                              {new Date(log.timestamp).toLocaleString()}
+                            </span>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="text-center py-4 text-gray-500">
+                          {t("settings.noActivityLogs")}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             </section>
           )}
@@ -838,88 +1268,96 @@ const Setting = () => {
           {/* Privacy and Security */}
           {selected === 5 && (
             <section className="space-y-3 sm:space-y-4 md:space-y-5 max-w-2xl">
-              <div>
-                <h3 className="text-white text-md sm:text-xl lg:text-xl font-semibold mb-2 sm:mb-3 lg:mb-3">
-                  {t("settings.accountPrivacy")}
-                </h3>
-                <div className="bg-[#232323] rounded-lg p-3 sm:p-4 md:p-4">
-                  <label className="flex items-center gap-3 py-2">
-                    <input
-                      type="checkbox"
-                      checked={privacySettings.privateAccount}
-                      onChange={(e) =>
-                        handlePrivacyChange("privateAccount", e.target.checked)
-                      }
-                      className="accent-yellow-400 w-4 h-4 sm:w-5 sm:h-5"
-                    />
-                    <span className="text-white text-sm sm:text-base md:text-md">
-                      {t("settings.privateAccount")}
-                    </span>
-                  </label>
+              {isLoadingSettings ? (
+                <div className="flex justify-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-yellow-400"></div>
                 </div>
-              </div>
-              <div>
-                <h3 className="text-white text-md sm:text-xl lg:text-xl font-semibold mb-2 sm:mb-3 lg:mb-3">
-                  {t("settings.accountStatus")}
-                </h3>
-                <div className="bg-[#232323] rounded-lg p-3 sm:p-4 md:p-4">
-                  <label className="flex items-center gap-3 py-2">
-                    <input
-                      type="checkbox"
-                      checked={privacySettings.showActivityStatus}
-                      onChange={(e) =>
-                        handlePrivacyChange(
-                          "showActivityStatus",
-                          e.target.checked
-                        )
-                      }
-                      className="accent-yellow-400 w-4 h-4 sm:w-5 sm:h-5"
-                    />
-                    <span className="text-white text-sm sm:text-base md:text-md">
-                      {t("settings.showActivityStatus")}
-                    </span>
-                  </label>
-                </div>
-              </div>
-              <div>
-                <h3 className="text-white text-md sm:text-xl lg:text-xl font-semibold mb-2 sm:mb-3 lg:mb-3">
-                  {t("settings.twoFactorAuth")}
-                </h3>
-                <div className="bg-[#232323] rounded-lg p-3 sm:p-4 md:p-4 space-y-2 sm:space-y-3">
-                  <label className="flex items-center gap-3 py-2">
-                    <input
-                      type="checkbox"
-                      checked={privacySettings.twoFactorAuth.useAuthApp}
-                      onChange={(e) =>
-                        handlePrivacyChange("twoFactorAuth", {
-                          ...privacySettings.twoFactorAuth,
-                          useAuthApp: e.target.checked,
-                        })
-                      }
-                      className="accent-yellow-400 w-4 h-4 sm:w-5 sm:h-5"
-                    />
-                    <span className="text-white text-sm sm:text-base md:text-md">
-                      {t("settings.useAuthApp")}
-                    </span>
-                  </label>
-                  <label className="flex items-center gap-3 py-2">
-                    <input
-                      type="checkbox"
-                      checked={privacySettings.twoFactorAuth.useSms}
-                      onChange={(e) =>
-                        handlePrivacyChange("twoFactorAuth", {
-                          ...privacySettings.twoFactorAuth,
-                          useSms: e.target.checked,
-                        })
-                      }
-                      className="accent-yellow-400 w-4 h-4 sm:w-5 sm:h-5"
-                    />
-                    <span className="text-white text-sm sm:text-base md:text-md">
-                      {t("settings.useSms")}
-                    </span>
-                  </label>
-                </div>
-              </div>
+              ) : (
+                <>
+                  <div>
+                    <h3 className="text-white text-md sm:text-xl lg:text-xl font-semibold mb-2 sm:mb-3 lg:mb-3">
+                      {t("settings.accountPrivacy")}
+                    </h3>
+                    <div className="bg-[#232323] rounded-lg p-3 sm:p-4 md:p-4">
+                      <label className="flex items-center gap-3 py-2">
+                        <input
+                          type="checkbox"
+                          checked={privacySettings.privateAccount}
+                          onChange={(e) =>
+                            handlePrivacyChange("privateAccount", e.target.checked)
+                          }
+                          className="accent-yellow-400 w-4 h-4 sm:w-5 sm:h-5"
+                        />
+                        <span className="text-white text-sm sm:text-base md:text-md">
+                          {t("settings.privateAccount")}
+                        </span>
+                      </label>
+                    </div>
+                  </div>
+                  <div>
+                    <h3 className="text-white text-md sm:text-xl lg:text-xl font-semibold mb-2 sm:mb-3 lg:mb-3">
+                      {t("settings.accountStatus")}
+                    </h3>
+                    <div className="bg-[#232323] rounded-lg p-3 sm:p-4 md:p-4">
+                      <label className="flex items-center gap-3 py-2">
+                        <input
+                          type="checkbox"
+                          checked={privacySettings.showActivityStatus}
+                          onChange={(e) =>
+                            handlePrivacyChange(
+                              "showActivityStatus",
+                              e.target.checked
+                            )
+                          }
+                          className="accent-yellow-400 w-4 h-4 sm:w-5 sm:h-5"
+                        />
+                        <span className="text-white text-sm sm:text-base md:text-md">
+                          {t("settings.showActivityStatus")}
+                        </span>
+                      </label>
+                    </div>
+                  </div>
+                  <div>
+                    <h3 className="text-white text-md sm:text-xl lg:text-xl font-semibold mb-2 sm:mb-3 lg:mb-3">
+                      {t("settings.twoFactorAuth")}
+                    </h3>
+                    <div className="bg-[#232323] rounded-lg p-3 sm:p-4 md:p-4 space-y-2 sm:space-y-3">
+                      <label className="flex items-center gap-3 py-2">
+                        <input
+                          type="checkbox"
+                          checked={privacySettings.twoFactorAuth.useAuthApp}
+                          onChange={(e) =>
+                            handlePrivacyChange("twoFactorAuth", {
+                              ...privacySettings.twoFactorAuth,
+                              useAuthApp: e.target.checked,
+                            })
+                          }
+                          className="accent-yellow-400 w-4 h-4 sm:w-5 sm:h-5"
+                        />
+                        <span className="text-white text-sm sm:text-base md:text-md">
+                          {t("settings.useAuthApp")}
+                        </span>
+                      </label>
+                      <label className="flex items-center gap-3 py-2">
+                        <input
+                          type="checkbox"
+                          checked={privacySettings.twoFactorAuth.useSms}
+                          onChange={(e) =>
+                            handlePrivacyChange("twoFactorAuth", {
+                              ...privacySettings.twoFactorAuth,
+                              useSms: e.target.checked,
+                            })
+                          }
+                          className="accent-yellow-400 w-4 h-4 sm:w-5 sm:h-5"
+                        />
+                        <span className="text-white text-sm sm:text-base md:text-md">
+                          {t("settings.useSms")}
+                        </span>
+                      </label>
+                    </div>
+                  </div>
+                </>
+              )}
             </section>
           )}
 
@@ -930,47 +1368,53 @@ const Setting = () => {
                 <h3 className="text-white text-md sm:text-xl lg:text-xl font-semibold mb-3 sm:mb-4 lg:mb-5">
                   {t("settings.otherSettings")}
                 </h3>
-                <div className="bg-[#232323] rounded-lg p-4 sm:p-5 md:p-6 space-y-4 sm:space-y-5 md:space-y-6">
-                  {/* Language */}
-                  <div className="space-y-2">
-                    <label className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
-                      <span className="text-white font-semibold text-sm sm:text-base md:text-md min-w-0 sm:min-w-[128px]">
-                        {t("settings.language")}
-                      </span>
-                      <select
-                        value={selectedLanguage}
-                        onChange={(e) => setSelectedLanguage(e.target.value)}
-                        className="flex-1 bg-[#181818] text-white rounded-lg px-4 sm:px-5 py-3 sm:py-4 text-sm sm:text-base md:text-md outline-none focus:ring-2 focus:ring-yellow-400 transition-all min-h-[48px] sm:min-h-[52px]"
-                      >
-                        <option value="en">English</option>
-                        <option value="es">Spanish</option>
-                        <option value="fr">French</option>
-                        <option value="de">German</option>
-                      </select>
-                    </label>
+                {isLoadingSettings ? (
+                  <div className="bg-[#232323] rounded-lg p-4 sm:p-5 md:p-6 flex justify-center">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-yellow-400"></div>
                   </div>
-                  {/* Notifications */}
-                  <div className="space-y-2">
-                    <label className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
-                      <span className="text-white font-semibold text-sm sm:text-base md:text-md min-w-0 sm:min-w-[128px]">
-                        {t("settings.notifications")}
-                      </span>
-                      <div className="flex items-center gap-3 py-2">
-                        <input
-                          type="checkbox"
-                          checked={notificationsEnabled}
-                          onChange={(e) =>
-                            handleNotificationsChange(e.target.checked)
-                          }
-                          className="accent-yellow-400 w-4 h-4 sm:w-5 sm:h-5"
-                        />
-                        <span className="text-white text-sm sm:text-base md:text-md">
-                          {t("settings.enableNotifications")}
+                ) : (
+                  <div className="bg-[#232323] rounded-lg p-4 sm:p-5 md:p-6 space-y-4 sm:space-y-5 md:space-y-6">
+                    {/* Language */}
+                    <div className="space-y-2">
+                      <label className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
+                        <span className="text-white font-semibold text-sm sm:text-base md:text-md min-w-0 sm:min-w-[128px]">
+                          {t("settings.language")}
                         </span>
-                      </div>
-                    </label>
+                        <select
+                          value={selectedLanguage}
+                          onChange={(e) => setSelectedLanguage(e.target.value)}
+                          className="flex-1 bg-[#181818] text-white rounded-lg px-4 sm:px-5 py-3 sm:py-4 text-sm sm:text-base md:text-md outline-none focus:ring-2 focus:ring-yellow-400 transition-all min-h-[48px] sm:min-h-[52px]"
+                        >
+                          <option value="en">English</option>
+                          <option value="es">Spanish</option>
+                          <option value="fr">French</option>
+                          <option value="de">German</option>
+                        </select>
+                      </label>
+                    </div>
+                    {/* Notifications */}
+                    <div className="space-y-2">
+                      <label className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
+                        <span className="text-white font-semibold text-sm sm:text-base md:text-md min-w-0 sm:min-w-[128px]">
+                          {t("settings.notifications")}
+                        </span>
+                        <div className="flex items-center gap-3 py-2">
+                          <input
+                            type="checkbox"
+                            checked={notificationsEnabled}
+                            onChange={(e) =>
+                              handleNotificationsChange(e.target.checked)
+                            }
+                            className="accent-yellow-400 w-4 h-4 sm:w-5 sm:h-5"
+                          />
+                          <span className="text-white text-sm sm:text-base md:text-md">
+                            {t("settings.enableNotifications")}
+                          </span>
+                        </div>
+                      </label>
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
               <div className="flex justify-end pt-2 sm:pt-4">
                 <button
@@ -998,6 +1442,45 @@ const Setting = () => {
               >
                 {t("settings.logOut")}
               </button>
+            </section>
+          )}
+
+          {/* Delete Account */}
+          {selected === 8 && (
+            <section className="flex flex-col items-center justify-center h-full">
+              <h2 className="text-white text-xl sm:text-2xl lg:text-3xl font-semibold mb-4">
+                {t("settings.deleteAccount")}
+              </h2>
+              <p className="text-gray-400 mb-6 sm:mb-8 text-center max-w-md text-sm sm:text-base md:text-md px-4">
+                {t("settings.deleteAccountMessage")}
+              </p>
+              <div className="space-y-4 w-full max-w-md">
+                {user?.provider !== "google" && (
+                  <div className="space-y-2">
+                    <label className="flex flex-col">
+                      <span className="text-white mb-2 text-sm sm:text-base md:text-md font-medium">
+                        {t("settings.confirmPassword")}
+                      </span>
+                      <input
+                        type="password"
+                        value={deletePassword}
+                        onChange={(e) => setDeletePassword(e.target.value)}
+                        placeholder={t("settings.enterPassword")}
+                        className="bg-[#232323] text-white rounded-lg px-4 sm:px-5 py-3 sm:py-4 text-sm sm:text-base md:text-md outline-none focus:ring-2 focus:ring-red-400 transition-all min-h-[48px] sm:min-h-[52px]"
+                      />
+                    </label>
+                  </div>
+                )}
+                <div className="flex gap-3">
+                  <button
+                    onClick={handleDeleteAccount}
+                    disabled={isDeletingAccount || (user?.provider !== "google" && !deletePassword)}
+                    className="flex-1 bg-red-500 text-white font-semibold px-6 sm:px-8 py-3 sm:py-4 rounded-lg hover:bg-red-600 transition-all text-sm sm:text-base md:text-md min-h-[48px] sm:min-h-[52px] shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isDeletingAccount ? t("settings.deleting") : t("settings.deleteAccount")}
+                  </button>
+                </div>
+              </div>
             </section>
           )}
         </main>
@@ -1080,14 +1563,10 @@ const Setting = () => {
                 <div className="mb-4">
                   {currentImageType === "profile" ? (
                     <div className="w-24 h-24 mx-auto rounded-full border-2 border-yellow-400 overflow-hidden">
-                      <img
-                        src={
-                          profileImagePreview ||
-                          user?.profileImage ||
-                          "/default-avatar.png"
-                        }
-                        alt="Current profile"
-                        className="w-full h-full object-cover"
+                      <Avatar
+                        image={profileImagePreview || user?.profileImage}
+                        username={user?.name}
+                        className="w-full h-full"
                       />
                     </div>
                   ) : (
@@ -1096,10 +1575,11 @@ const Setting = () => {
                         src={
                           coverImagePreview ||
                           user?.coverImage ||
-                          "/default-cover.png"
+                          "/assets/default-cover.png"
                         }
                         alt="Current cover"
                         className="w-full h-full object-cover"
+                        onError={(e) => e.target.src = '/assets/default-cover.png'}
                       />
                     </div>
                   )}

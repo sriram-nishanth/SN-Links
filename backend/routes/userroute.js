@@ -1,5 +1,5 @@
 import express from 'express';
-import { createuser, loginUser, googleAuth, googleAuthCallback, googleAuthToken, getUserProfile, updateUserProfile, followUser, unfollowUser, getFollowers, getAllUsers, getUserById, getUserFollowers, getUserFollowing, updateProfileImage, updateCoverImage, upload } from '../controllers/usercontrollers.js';
+import { createuser, loginUser, googleAuth, googleAuthCallback, googleAuthToken, getUserProfile, updateUserProfile, followUser, unfollowUser, getFollowers, getAllUsers, getUserById, getUserFollowers, getUserFollowing, updateProfileImage, updateCoverImage, upload, getActivityLogs, getConnectedApps, updateConnectedApps, getLanguage, updateLanguage, getPrivacySettings, updatePrivacySettings, getNotifications, updateNotifications, updatePassword, deleteUser } from '../controllers/usercontrollers.js';
 import protect from '../middleware/auth.js';
 
 const router = express.Router();
@@ -33,5 +33,18 @@ router.put('/user/profile/image', protect, upload.single('profileImage'), update
 
 // Cover image upload route
 router.put('/user/profile/cover', protect, upload.single('coverImage'), updateCoverImage);
+
+// Settings routes
+router.get('/user/activity', protect, getActivityLogs);
+router.get('/user/apps', protect, getConnectedApps);
+router.put('/user/apps', protect, updateConnectedApps);
+router.get('/user/language', protect, getLanguage);
+router.put('/user/language', protect, updateLanguage);
+router.get('/user/privacy', protect, getPrivacySettings);
+router.put('/user/privacy', protect, updatePrivacySettings);
+router.get('/user/notifications', protect, getNotifications);
+router.put('/user/notifications', protect, updateNotifications);
+router.put('/user/password', protect, updatePassword);
+router.delete('/user/delete', protect, deleteUser);
 
 export default router;
