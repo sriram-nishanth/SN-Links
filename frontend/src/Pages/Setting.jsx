@@ -4,7 +4,6 @@ import { BsSearch, BsList, BsX } from "react-icons/bs";
 import { menu, ProfileData } from "../utils/assest";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import Toast from "../Components/Toast";
 import { useUser } from "../Context/UserContext";
 import Avatar from "../Components/Avatar";
 import axios from "axios";
@@ -39,8 +38,7 @@ const Setting = () => {
   const [currentImageType, setCurrentImageType] = useState(""); // 'profile' or 'cover'
   const profileImageRef = useRef(null);
   const coverImageRef = useRef(null);
-  const [toast, setToast] = useState({ message: "", type: "" });
-   const [hasChanges, setHasChanges] = useState(false);
+  const [hasChanges, setHasChanges] = useState(false);
    const [initialProfile, setInitialProfile] = useState({
      fullName: "",
      username: "",
@@ -108,7 +106,7 @@ const Setting = () => {
   useEffect(() => {
   const fetchUserProfile = async () => {
   try {
-  const token = user?.token;
+  const token = user?.token || getToken();
   if (!token) {
   console.error("No user token for profile fetch");
     return;
@@ -353,10 +351,10 @@ const Setting = () => {
   };
 
   const handleSaveLanguage = async () => {
-  if (selectedLanguage !== i18n.language) {
-  try {
-  const token = user?.token || getToken();
-  if (token) {
+    if (selectedLanguage !== i18n.language) {
+      try {
+        const token = user?.token || getToken();
+        if (token) {
           const response = await fetch(`${API_BASE_URL}/user/language`, {
             method: "PUT",
             headers: {
@@ -368,18 +366,16 @@ const Setting = () => {
           });
           if (!response.ok) {
             console.error("Language update failed:", response.status, await response.text());
-            setToast({ type: "error", message: "Failed to update language!" });
+            alert("Failed to update language!");
           } else {
             handleLanguageChange(selectedLanguage);
-            setToast({ type: "success", message: "Language updated successfully!" });
+            alert("Language updated successfully!");
           }
         }
       } catch (error) {
         console.error("Error updating language:", error);
-        setToast({ type: "error", message: "Error updating language!" });
+        alert("Error updating language!");
       }
-
-      setTimeout(() => setToast({ type: "", message: "" }), 3000);
     }
   };
 
@@ -435,34 +431,27 @@ const Setting = () => {
         // Dispatch event to notify AccountSlide to refresh
         window.dispatchEvent(new CustomEvent("profileUpdated"));
         addActivityLog("Profile updated");
-        setToast({ type: "success", message: "Profile saved successfully!" });
+        alert("Profile saved successfully!");
       } else {
-        setToast({
-          type: "error",
-          message: data.message || "Failed to save profile!",
-        });
+        alert(data.message || "Failed to save profile!");
       }
     } catch (error) {
       console.error("Error saving profile:", error);
-      setToast({
-        type: "error",
-        message: "Error saving profile. Please try again.",
-      });
+      alert("Error saving profile. Please try again.");
     } finally {
       setIsSavingProfile(false);
     }
-    setTimeout(() => setToast({ type: "", message: "" }), 3000);
   };
 
   // Connected apps handler
   const handleConnectApp = async (app) => {
-  const updatedApps = { ...connectedApps, [app]: !connectedApps[app] };
-  setConnectedApps(updatedApps);
-  localStorage.setItem("connectedApps", JSON.stringify(updatedApps));
+    const updatedApps = { ...connectedApps, [app]: !connectedApps[app] };
+    setConnectedApps(updatedApps);
+    localStorage.setItem("connectedApps", JSON.stringify(updatedApps));
 
-  try {
-  const token = user?.token || getToken();
-  if (token) {
+    try {
+      const token = user?.token || getToken();
+      if (token) {
         const response = await fetch(`${API_BASE_URL}/user/apps`, {
           method: "PUT",
           headers: {
@@ -474,38 +463,32 @@ const Setting = () => {
         });
         if (!response.ok) {
           console.error("Apps update failed:", response.status, await response.text());
-          setToast({ type: "error", message: `Failed to ${updatedApps[app] ? "connect" : "disconnect"} ${app}!` });
+          alert(`Failed to ${updatedApps[app] ? "connect" : "disconnect"} ${app}!`);
         } else {
           addActivityLog(`${app} ${updatedApps[app] ? "connected" : "disconnected"}`);
-          setToast({
-            type: "success",
-            message: `${app} ${updatedApps[app] ? "connected" : "disconnected"} successfully!`,
-          });
+          alert(`${app} ${updatedApps[app] ? "connected" : "disconnected"} successfully!`);
         }
       }
     } catch (error) {
       console.error("Error updating apps:", error);
-      setToast({ type: "error", message: `Error ${updatedApps[app] ? "connecting" : "disconnecting"} ${app}!` });
+      alert(`Error ${updatedApps[app] ? "connecting" : "disconnecting"} ${app}!`);
     }
-
-    setTimeout(() => setToast({ type: "", message: "" }), 3000);
   };
 
   // New app handler
   const handleConnectNewApp = async () => {
-  if (!newAppName.trim()) {
-  setToast({ type: "error", message: "Please enter an app name!" });
-  setTimeout(() => setToast({ type: "", message: "" }), 3000);
-  return;
-  }
+    if (!newAppName.trim()) {
+      alert("Please enter an app name!");
+      return;
+    }
 
-  const updatedApps = { ...connectedApps, [newAppName.toLowerCase()]: true };
-  setConnectedApps(updatedApps);
-  localStorage.setItem("connectedApps", JSON.stringify(updatedApps));
+    const updatedApps = { ...connectedApps, [newAppName.toLowerCase()]: true };
+    setConnectedApps(updatedApps);
+    localStorage.setItem("connectedApps", JSON.stringify(updatedApps));
 
-  try {
-  const token = user?.token || getToken();
-  if (token) {
+    try {
+      const token = user?.token || getToken();
+      if (token) {
         const response = await fetch(`${API_BASE_URL}/user/apps`, {
           method: "PUT",
           headers: {
@@ -517,50 +500,41 @@ const Setting = () => {
         });
         if (!response.ok) {
           console.error("New app connect failed:", response.status, await response.text());
-          setToast({ type: "error", message: `Failed to connect ${newAppName}!` });
+          alert(`Failed to connect ${newAppName}!`);
         } else {
           addActivityLog(`${newAppName} connected`);
-          setToast({
-            type: "success",
-            message: `${newAppName} connected successfully!`,
-          });
+          alert(`${newAppName} connected successfully!`);
           setNewAppName("");
           setShowNewAppModal(false);
         }
       }
     } catch (error) {
       console.error("Error connecting new app:", error);
-      setToast({ type: "error", message: `Error connecting ${newAppName}!` });
+      alert(`Error connecting ${newAppName}!`);
     }
     setNewAppName("");
     setShowNewAppModal(false);
-    setTimeout(() => setToast({ type: "", message: "" }), 3000);
   };
 
   // Password change handler
   const handleChangePassword = async () => {
-  if (passwordData.newPassword !== passwordData.retypePassword) {
-  setToast({ type: "error", message: "Passwords do not match!" });
-  setTimeout(() => setToast({ type: "", message: "" }), 3000);
-  return;
-  }
-  if (passwordData.newPassword.length < 6) {
-  setToast({
-  type: "error",
-  message: "Password must be at least 6 characters!",
-  });
-  setTimeout(() => setToast({ type: "", message: "" }), 3000);
-  return;
-  }
+    if (passwordData.newPassword !== passwordData.retypePassword) {
+      alert("Passwords do not match!");
+      return;
+    }
+    if (passwordData.newPassword.length < 6) {
+      alert("Password must be at least 6 characters!");
+      return;
+    }
 
-  try {
-  const token = user?.token || getToken();
-  if (!token) {
-  setToast({ type: "error", message: "Authentication required!" });
-  return;
-  }
+    try {
+      const token = user?.token || getToken();
+      if (!token) {
+        alert("Authentication required!");
+        return;
+      }
 
-  const response = await fetch(`${API_BASE_URL}/user/password`, {
+      const response = await fetch(`${API_BASE_URL}/user/password`, {
         method: "PUT",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -576,33 +550,25 @@ const Setting = () => {
       if (response.ok && data.success) {
         addActivityLog("Password changed");
         setPasswordData({ newPassword: "", retypePassword: "" });
-        setToast({ type: "success", message: "Password changed successfully!" });
+        alert("Password changed successfully!");
       } else {
-        setToast({
-          type: "error",
-          message: data.message || "Failed to change password!",
-        });
+        alert(data.message || "Failed to change password!");
       }
     } catch (error) {
       console.error("Error changing password:", error);
-      setToast({
-        type: "error",
-        message: "Error changing password. Please try again.",
-      });
-    } finally {
-      setTimeout(() => setToast({ type: "", message: "" }), 3000);
+      alert("Error changing password. Please try again.");
     }
   };
 
   // Privacy settings handler
   const handlePrivacyChange = async (setting, value) => {
-  const updatedSettings = { ...privacySettings, [setting]: value };
-  setPrivacySettings(updatedSettings);
-  localStorage.setItem("privacySettings", JSON.stringify(updatedSettings));
+    const updatedSettings = { ...privacySettings, [setting]: value };
+    setPrivacySettings(updatedSettings);
+    localStorage.setItem("privacySettings", JSON.stringify(updatedSettings));
 
-  try {
-  const token = user?.token || getToken();
-  if (token) {
+    try {
+      const token = user?.token || getToken();
+      if (token) {
         const response = await fetch(`${API_BASE_URL}/user/privacy`, {
           method: "PUT",
           headers: {
@@ -614,18 +580,16 @@ const Setting = () => {
         });
         if (!response.ok) {
           console.error("Privacy update failed:", response.status, await response.text());
-          setToast({ type: "error", message: "Failed to update privacy settings!" });
+          alert("Failed to update privacy settings!");
         } else {
           addActivityLog(`Privacy setting updated: ${setting}`);
-          setToast({ type: "success", message: "Privacy settings updated!" });
+          alert("Privacy settings updated!");
         }
       }
     } catch (error) {
       console.error("Error updating privacy settings:", error);
-      setToast({ type: "error", message: "Error updating privacy settings!" });
+      alert("Error updating privacy settings!");
     }
-
-    setTimeout(() => setToast({ type: "", message: "" }), 3000);
   };
 
   // Notifications handler
@@ -647,18 +611,16 @@ const Setting = () => {
         });
         if (!response.ok) {
           console.error("Notifications update failed:", response.status, await response.text());
-          setToast({ type: "error", message: "Failed to update notifications!" });
+          alert("Failed to update notifications!");
         } else {
           addActivityLog(`Notifications ${enabled ? "enabled" : "disabled"}`);
-          setToast({ type: "success", message: "Notification settings updated!" });
+          alert("Notification settings updated!");
         }
       }
     } catch (error) {
       console.error("Error updating notifications:", error);
-      setToast({ type: "error", message: "Error updating notifications!" });
+      alert("Error updating notifications!");
     }
-
-    setTimeout(() => setToast({ type: "", message: "" }), 3000);
   };
 
   // Logout handler
@@ -685,7 +647,9 @@ const Setting = () => {
 
   // Delete account handler
   const handleDeleteAccount = async () => {
-    if (!window.confirm(t("settings.confirmDeleteAccount"))) {
+    // Show confirmation dialog
+    const confirmed = window.confirm(t("settings.deleteAccountMessage"));
+    if (!confirmed) {
       return;
     }
 
@@ -693,7 +657,7 @@ const Setting = () => {
     try {
       const token = getToken();
       if (!token) {
-        setToast({ type: "error", message: "Authentication required!" });
+        alert("Authentication required!");
         return;
       }
 
@@ -712,28 +676,21 @@ const Setting = () => {
       const data = await response.json();
 
       if (response.ok && data.success) {
-        setToast({ type: "success", message: "Account deleted successfully!" });
+        alert("Account deleted successfully!");
         setTimeout(() => {
           // Perform logout and redirect
           logout();
           navigate("/login", { replace: true });
         }, 2000);
       } else {
-        setToast({
-          type: "error",
-          message: data.message || "Failed to delete account!",
-        });
+        alert(data.message || "Failed to delete account!");
       }
     } catch (error) {
       console.error("Error deleting account:", error);
-      setToast({
-        type: "error",
-        message: "Error deleting account. Please try again.",
-      });
+      alert("Error deleting account. Please try again.");
     } finally {
       setIsDeletingAccount(false);
     }
-    setTimeout(() => setToast({ type: "", message: "" }), 3000);
   };
 
   // Image upload handlers
@@ -747,15 +704,13 @@ const Setting = () => {
     if (file) {
       // Validate file type
       if (!file.type.startsWith("image/")) {
-        setToast({ type: "error", message: "Please select an image file" });
-        setTimeout(() => setToast({ type: "", message: "" }), 3000);
+        alert("Please select an image file");
         return;
       }
 
       // Validate file size (5MB limit)
       if (file.size > 5 * 1024 * 1024) {
-        setToast({ type: "error", message: "File size must be less than 5MB" });
-        setTimeout(() => setToast({ type: "", message: "" }), 3000);
+        alert("File size must be less than 5MB");
         return;
       }
 
@@ -780,7 +735,7 @@ const Setting = () => {
     try {
       const token = getToken();
       if (!token) {
-        setToast({ type: "error", message: "Authentication required!" });
+        alert("Authentication required!");
         return;
       }
 
@@ -824,28 +779,19 @@ const Setting = () => {
         addActivityLog(
           `${type === "profile" ? "Profile" : "Cover"} image updated`
         );
-        setToast({
-          type: "success",
-          message: `${
-            type === "profile" ? "Profile" : "Cover"
-          } image updated successfully!`,
-        });
+        alert(`${type === "profile" ? "Profile" : "Cover"} image updated successfully!`);
       }
     } catch (error) {
       console.error("Upload error:", error);
       if (error.response?.data?.message) {
-        setToast({ type: "error", message: error.response.data.message });
+        alert(error.response.data.message);
       } else {
-        setToast({
-          type: "error",
-          message: "Failed to upload image. Please try again.",
-        });
+        alert("Failed to upload image. Please try again.");
       }
     } finally {
       setUploadingImage(false);
       setShowImageModal(false);
     }
-    setTimeout(() => setToast({ type: "", message: "" }), 3000);
   };
 
   return (
@@ -853,11 +799,6 @@ const Setting = () => {
       key={languageKey}
       className="bg-gradient-to-r from-zinc-900 to-slate-900 min-h-screen"
     >
-      <Toast
-        message={toast.message}
-        type={toast.type}
-        onClose={() => setToast({ message: "", type: "" })}
-      />
       <ModernNavbar searchQuery={searchQuery} setSearchQuery={setSearchQuery} />
       <div className="flex flex-col lg:flex-row min-h-[calc(100vh-120px)] px-3 sm:px-4 md:px-6 py-3 sm:py-4 md:py-6 lg:py-8 gap-4 sm:gap-6 lg:gap-8 pt-20 lg:pt-24 pb-24 sm:pb-4">
         {/* Mobile Menu Button */}
@@ -1026,7 +967,7 @@ const Setting = () => {
                         placeholder={
                           profile.fullName || t("settings.enterFullName")
                         }
-                        className="bg-[#232323] text-white rounded-lg px-4 sm:px-5 py-3 sm:py-4 text-sm sm:text-base md:text-md outline-none focus:ring-2 focus:ring-yellow-400 transition-all min-h-[48px] sm:min-h-[52px]"
+                        className="bg-[#232323] text-white rounded-lg px-4 sm:px-5 py-3 sm:py-4 text-sm sm:text-base md:text-md outline-none focus:ring-2 focus:ring-yellow-400 transition-all min-h-[48px] sm:min-h-[52px] hover:bg-[#2a2a2a] focus:bg-[#2a2a2a]"
                       />
                     </label>
                   </div>
@@ -1044,7 +985,7 @@ const Setting = () => {
                   placeholder={
                   profile.username || t("settings.enterUsername")
                   }
-                  className="bg-[#232323] text-white rounded-lg px-4 sm:px-5 py-3 sm:py-4 text-sm sm:text-base md:text-md outline-none focus:ring-2 focus:ring-yellow-400 transition-all min-h-[48px] sm:min-h-[52px]"
+                  className="bg-[#232323] text-white rounded-lg px-4 sm:px-5 py-3 sm:py-4 text-sm sm:text-base md:text-md outline-none focus:ring-2 focus:ring-yellow-400 transition-all min-h-[48px] sm:min-h-[52px] hover:bg-[#2a2a2a] focus:bg-[#2a2a2a]"
                   />
                   </label>
                   </div>
@@ -1060,7 +1001,7 @@ const Setting = () => {
                            setProfile({ ...profile, email: e.target.value })
                          }
                          placeholder="Enter your email"
-                         className="bg-[#232323] text-white rounded-lg px-4 sm:px-5 py-3 sm:py-4 text-sm sm:text-base md:text-md outline-none focus:ring-2 focus:ring-yellow-400 transition-all min-h-[48px] sm:min-h-[52px]"
+                         className="bg-[#232323] text-white rounded-lg px-4 sm:px-5 py-3 sm:py-4 text-sm sm:text-base md:text-md outline-none focus:ring-2 focus:ring-yellow-400 transition-all min-h-[48px] sm:min-h-[52px] hover:bg-[#2a2a2a] focus:bg-[#2a2a2a]"
                        />
                      </label>
                    </div>
@@ -1077,7 +1018,7 @@ const Setting = () => {
                         placeholder={
                           profile.bio || t("settings.tellAboutYourself")
                         }
-                        className="bg-[#232323] text-white rounded-lg px-4 sm:px-5 py-3 sm:py-4 text-sm sm:text-base md:text-md outline-none focus:ring-2 focus:ring-yellow-400 transition-all resize-none min-h-[100px] sm:min-h-[120px]"
+                        className="bg-[#232323] text-white rounded-lg px-4 sm:px-5 py-3 sm:py-4 text-sm sm:text-base md:text-md outline-none focus:ring-2 focus:ring-yellow-400 transition-all resize-none min-h-[100px] sm:min-h-[120px] hover:bg-[#2a2a2a] focus:bg-[#2a2a2a]"
                         rows={4}
                       />
                     </label>
@@ -1088,7 +1029,7 @@ const Setting = () => {
                 <button
                 onClick={handleSaveProfile}
                 disabled={isSavingProfile || !hasChanges}
-                className="bg-yellow-400 text-black font-semibold px-6 sm:px-8 py-3 sm:py-4 rounded-lg hover:bg-yellow-500 transition-all text-sm sm:text-base md:text-md min-h-[48px] sm:min-h-[52px] shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
+                className="bg-yellow-400 text-black font-semibold px-6 sm:px-8 py-3 sm:py-4 rounded-lg hover:bg-yellow-500 transition-all text-sm sm:text-base md:text-md min-h-[48px] sm:min-h-[52px] shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-105 active:scale-95"
                 >
                 {isSavingProfile ? "Saving..." : t("common.save")}
                 </button>
@@ -1115,11 +1056,11 @@ const Setting = () => {
                     </div>
                     <button
                       onClick={() => handleConnectApp("google")}
-                      className={`px-4 sm:px-6 py-2 sm:py-2.5 rounded-lg transition-all text-sm sm:text-base font-medium min-h-[44px] sm:min-h-[48px] shadow-md hover:shadow-lg ${
-                        connectedApps.google
-                          ? "bg-red-500 text-white hover:bg-red-600"
-                          : "bg-green-500 text-white hover:bg-green-600"
-                      }`}
+                      className={`px-4 sm:px-6 py-2 sm:py-2.5 rounded-lg transition-all text-sm sm:text-base font-medium min-h-[44px] sm:min-h-[48px] shadow-md hover:shadow-lg transform hover:scale-105 active:scale-95 ${
+                      connectedApps.google
+                        ? "bg-red-500 text-white hover:bg-red-600"
+                        : "bg-green-500 text-white hover:bg-green-600"
+                    }`}
                     >
                       {connectedApps.google
                         ? t("settings.disconnect")
@@ -1137,11 +1078,11 @@ const Setting = () => {
                     </div>
                     <button
                       onClick={() => handleConnectApp("facebook")}
-                      className={`px-4 sm:px-6 py-2 sm:py-2.5 rounded-lg transition-all text-sm sm:text-base font-medium min-h-[44px] sm:min-h-[48px] shadow-md hover:shadow-lg ${
-                        connectedApps.facebook
-                          ? "bg-red-500 text-white hover:bg-red-600"
-                          : "bg-green-500 text-white hover:bg-green-600"
-                      }`}
+                      className={`px-4 sm:px-6 py-2 sm:py-2.5 rounded-lg transition-all text-sm sm:text-base font-medium min-h-[44px] sm:min-h-[48px] shadow-md hover:shadow-lg transform hover:scale-105 active:scale-95 ${
+                      connectedApps.facebook
+                        ? "bg-red-500 text-white hover:bg-red-600"
+                        : "bg-green-500 text-white hover:bg-green-600"
+                    }`}
                     >
                       {connectedApps.facebook
                         ? t("settings.disconnect")
@@ -1156,7 +1097,7 @@ const Setting = () => {
                 </h3>
                 <button
                   onClick={() => setShowNewAppModal(true)}
-                  className="bg-yellow-400 text-black font-semibold px-6 sm:px-8 py-3 sm:py-4 rounded-lg hover:bg-yellow-500 transition-all text-sm sm:text-base md:text-md min-h-[48px] sm:min-h-[52px] shadow-lg hover:shadow-xl"
+                  className="bg-yellow-400 text-black font-semibold px-6 sm:px-8 py-3 sm:py-4 rounded-lg hover:bg-yellow-500 transition-all text-sm sm:text-base md:text-md min-h-[48px] sm:min-h-[52px] shadow-lg hover:shadow-xl transform hover:scale-105 active:scale-95"
                 >
                   {t("settings.connectNewApp")}
                 </button>
@@ -1187,7 +1128,7 @@ const Setting = () => {
                           })
                         }
                         placeholder={t("settings.newPassword")}
-                        className="bg-[#232323] text-white rounded-lg px-4 sm:px-5 py-3 sm:py-4 text-sm sm:text-base md:text-md outline-none focus:ring-2 focus:ring-yellow-400 transition-all min-h-[48px] sm:min-h-[52px]"
+                        className="bg-[#232323] text-white rounded-lg px-4 sm:px-5 py-3 sm:py-4 text-sm sm:text-base md:text-md outline-none focus:ring-2 focus:ring-yellow-400 transition-all min-h-[48px] sm:min-h-[52px] hover:bg-[#2a2a2a] focus:bg-[#2a2a2a]"
                       />
                     </label>
                   </div>
@@ -1206,7 +1147,7 @@ const Setting = () => {
                           })
                         }
                         placeholder={t("settings.retypePassword")}
-                        className="bg-[#232323] text-white rounded-lg px-4 sm:px-5 py-3 sm:py-4 text-sm sm:text-base md:text-md outline-none focus:ring-2 focus:ring-yellow-400 transition-all min-h-[48px] sm:min-h-[52px]"
+                        className="bg-[#232323] text-white rounded-lg px-4 sm:px-5 py-3 sm:py-4 text-sm sm:text-base md:text-md outline-none focus:ring-2 focus:ring-yellow-400 transition-all min-h-[48px] sm:min-h-[52px] hover:bg-[#2a2a2a] focus:bg-[#2a2a2a]"
                       />
                     </label>
                   </div>
@@ -1215,7 +1156,7 @@ const Setting = () => {
               <div className="flex justify-end pt-2 sm:pt-4">
                 <button
                   onClick={handleChangePassword}
-                  className="bg-yellow-400 text-black font-semibold px-6 sm:px-8 py-3 sm:py-4 rounded-lg hover:bg-yellow-500 transition-all text-sm sm:text-base md:text-md min-h-[48px] sm:min-h-[52px] shadow-lg hover:shadow-xl"
+                  className="bg-yellow-400 text-black font-semibold px-6 sm:px-8 py-3 sm:py-4 rounded-lg hover:bg-yellow-500 transition-all text-sm sm:text-base md:text-md min-h-[48px] sm:min-h-[52px] shadow-lg hover:shadow-xl transform hover:scale-105 active:scale-95"
                 >
                   {t("settings.changePasswordBtn")}
                 </button>
@@ -1383,7 +1324,7 @@ const Setting = () => {
                         <select
                           value={selectedLanguage}
                           onChange={(e) => setSelectedLanguage(e.target.value)}
-                          className="flex-1 bg-[#181818] text-white rounded-lg px-4 sm:px-5 py-3 sm:py-4 text-sm sm:text-base md:text-md outline-none focus:ring-2 focus:ring-yellow-400 transition-all min-h-[48px] sm:min-h-[52px]"
+                          className="flex-1 bg-[#181818] text-white rounded-lg px-4 sm:px-5 py-3 sm:py-4 text-sm sm:text-base md:text-md outline-none focus:ring-2 focus:ring-yellow-400 transition-all min-h-[48px] sm:min-h-[52px] hover:bg-[#232323] focus:bg-[#232323]"
                         >
                           <option value="en">English</option>
                           <option value="es">Spanish</option>
@@ -1419,7 +1360,7 @@ const Setting = () => {
               <div className="flex justify-end pt-2 sm:pt-4">
                 <button
                   onClick={handleSaveLanguage}
-                  className="bg-yellow-400 text-black font-semibold px-6 sm:px-8 py-3 sm:py-4 rounded-lg hover:bg-yellow-500 transition-all text-sm sm:text-base md:text-md min-h-[48px] sm:min-h-[52px] shadow-lg hover:shadow-xl"
+                  className="bg-yellow-400 text-black font-semibold px-6 sm:px-8 py-3 sm:py-4 rounded-lg hover:bg-yellow-500 transition-all text-sm sm:text-base md:text-md min-h-[48px] sm:min-h-[52px] shadow-lg hover:shadow-xl transform hover:scale-105 active:scale-95"
                 >
                   {t("common.save")}
                 </button>
@@ -1437,7 +1378,7 @@ const Setting = () => {
                 {t("settings.logOutMessage")}
               </p>
               <button
-                className="bg-yellow-400 text-black font-semibold px-6 sm:px-8 py-2 sm:py-3 rounded-lg hover:bg-yellow-500 transition text-sm sm:text-base md:text-md"
+                className="bg-yellow-400 text-black font-semibold px-6 sm:px-8 py-2 sm:py-3 rounded-lg hover:bg-yellow-500 transition text-sm sm:text-base md:text-md transform hover:scale-105 active:scale-95"
                 onClick={handleLogout}
               >
                 {t("settings.logOut")}
@@ -1466,7 +1407,7 @@ const Setting = () => {
                         value={deletePassword}
                         onChange={(e) => setDeletePassword(e.target.value)}
                         placeholder={t("settings.enterPassword")}
-                        className="bg-[#232323] text-white rounded-lg px-4 sm:px-5 py-3 sm:py-4 text-sm sm:text-base md:text-md outline-none focus:ring-2 focus:ring-red-400 transition-all min-h-[48px] sm:min-h-[52px]"
+                        className="bg-[#232323] text-white rounded-lg px-4 sm:px-5 py-3 sm:py-4 text-sm sm:text-base md:text-md outline-none focus:ring-2 focus:ring-red-400 transition-all min-h-[48px] sm:min-h-[52px] hover:bg-[#2a2a2a] focus:bg-[#2a2a2a]"
                       />
                     </label>
                   </div>
@@ -1475,7 +1416,7 @@ const Setting = () => {
                   <button
                     onClick={handleDeleteAccount}
                     disabled={isDeletingAccount || (user?.provider !== "google" && !deletePassword)}
-                    className="flex-1 bg-red-500 text-white font-semibold px-6 sm:px-8 py-3 sm:py-4 rounded-lg hover:bg-red-600 transition-all text-sm sm:text-base md:text-md min-h-[48px] sm:min-h-[52px] shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="flex-1 bg-red-500 text-white font-semibold px-6 sm:px-8 py-3 sm:py-4 rounded-lg hover:bg-red-600 transition-all text-sm sm:text-base md:text-md min-h-[48px] sm:min-h-[52px] shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-105 active:scale-95"
                   >
                     {isDeletingAccount ? t("settings.deleting") : t("settings.deleteAccount")}
                   </button>
@@ -1512,7 +1453,7 @@ const Setting = () => {
                   value={newAppName}
                   onChange={(e) => setNewAppName(e.target.value)}
                   placeholder={t("settings.enterAppName")}
-                  className="w-full bg-[#232323] text-white rounded-lg px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-yellow-400 transition-all"
+                  className="w-full bg-[#232323] text-white rounded-lg px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-yellow-400 transition-all hover:bg-[#2a2a2a] focus:bg-[#2a2a2a]"
                   onKeyPress={(e) => {
                     if (e.key === "Enter") {
                       handleConnectNewApp();
@@ -1524,13 +1465,13 @@ const Setting = () => {
               <div className="flex gap-3 pt-4">
                 <button
                   onClick={() => setShowNewAppModal(false)}
-                  className="flex-1 bg-gray-600 text-white font-semibold py-3 rounded-lg hover:bg-gray-700 transition-all"
+                  className="flex-1 bg-gray-600 text-white font-semibold py-3 rounded-lg hover:bg-gray-700 transition-all transform hover:scale-105 active:scale-95"
                 >
                   {t("common.cancel")}
                 </button>
                 <button
                   onClick={handleConnectNewApp}
-                  className="flex-1 bg-yellow-400 text-black font-semibold py-3 rounded-lg hover:bg-yellow-500 transition-all"
+                  className="flex-1 bg-yellow-400 text-black font-semibold py-3 rounded-lg hover:bg-yellow-500 transition-all transform hover:scale-105 active:scale-95"
                 >
                   {t("settings.connect")}
                 </button>
@@ -1607,7 +1548,7 @@ const Setting = () => {
               <div className="flex gap-3">
                 <button
                   onClick={() => setShowImageModal(false)}
-                  className="flex-1 bg-gray-600 text-white font-semibold py-3 rounded-lg hover:bg-gray-700 transition-all"
+                  className="flex-1 bg-gray-600 text-white font-semibold py-3 rounded-lg hover:bg-gray-700 transition-all transform hover:scale-105 active:scale-95"
                 >
                   {t("common.cancel")}
                 </button>
@@ -1619,7 +1560,7 @@ const Setting = () => {
                         : coverImageRef.current;
                     fileInput?.click();
                   }}
-                  className="flex-1 bg-yellow-400 text-black font-semibold py-3 rounded-lg hover:bg-yellow-500 transition-all"
+                  className="flex-1 bg-yellow-400 text-black font-semibold py-3 rounded-lg hover:bg-yellow-500 transition-all transform hover:scale-105 active:scale-95"
                 >
                   {t("settings.selectFile")}
                 </button>
