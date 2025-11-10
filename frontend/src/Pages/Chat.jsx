@@ -16,6 +16,7 @@ import {
 import { FiSmile, FiPaperclip, FiMoreVertical, FiImage } from "react-icons/fi";
 import { motion, AnimatePresence } from "framer-motion";
 import ModernNavbar from "../Components/ModernNavbar";
+import Avatar from "../Components/Avatar";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { useUser } from "../Context/UserContext";
@@ -701,12 +702,10 @@ const Chat = () => {
                       >
                         <div className="flex items-center gap-3">
                           <div className="relative flex-shrink-0">
-                            <img
-                              src={
-                                chat.user?.profileImage || "/default-avatar.png"
-                              }
-                              alt={chat.user?.name}
-                              className="w-10 h-10 rounded-full object-cover"
+                            <Avatar
+                              src={chat.user?.profileImage}
+                              name={chat.user?.name}
+                              size="medium"
                             />
                             <div
                               className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-slate-900 ${
@@ -839,10 +838,10 @@ const Chat = () => {
                 >
                   <div className="flex items-center gap-3">
                     <div className="relative flex-shrink-0">
-                      <img
-                        src={chat.user?.profileImage || "/default-avatar.png"}
-                        alt={chat.user?.name}
-                        className="w-10 h-10 rounded-full object-cover"
+                      <Avatar
+                        src={chat.user?.profileImage}
+                        name={chat.user?.name}
+                        size="medium"
                       />
                       <div
                         className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-slate-900 ${
@@ -940,14 +939,18 @@ const Chat = () => {
                     </button>
                   )}
                   <div className="relative">
-                    <img
-                      src={selectedChat?.user?.profileImage}
-                      alt={selectedChat?.user?.name}
-                      className="w-10 h-10 rounded-full object-cover cursor-pointer hover:opacity-80 transition-opacity"
+                    <div
+                      className="cursor-pointer hover:opacity-80 transition-opacity"
                       onClick={() =>
                         navigate(`/profile/${selectedChat?.user?._id}`)
                       }
-                    />
+                    >
+                      <Avatar
+                        src={selectedChat?.user?.profileImage}
+                        name={selectedChat?.user?.name}
+                        size="medium"
+                      />
+                    </div>
                     <div
                       className={`absolute -bottom-1 -right-1 w-3 h-3 rounded-full border-2 border-slate-900 ${
                         selectedChat?.isOnline ? "bg-green-400" : "bg-gray-500"

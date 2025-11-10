@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useUser } from "../Context/UserContext";
 import ModernNavbar from "../Components/ModernNavbar";
-import DefaultAvatar from "../Components/DefaultAvatar";
+import Avatar from "../Components/Avatar";
 import FollowButton from "../Components/FollowButton";
 import Toast from "../Components/Toast";
 import axios from "axios";
@@ -307,21 +307,14 @@ const ExploreUsers = () => {
                     className="flex flex-col items-center mb-4 cursor-pointer"
                     onClick={() => navigate(`/profile/${person.id}`)}
                   >
-                    {person.profileImage && person.profileImage.trim() !== "" ? (
-                      <img
+                    <div className="mb-3">
+                      <Avatar
                         src={person.profileImage}
-                        alt={person.name}
-                        className="w-20 h-20 rounded-full object-cover mb-3 hover:ring-4 hover:ring-yellow-400/50 transition"
+                        name={person.name}
+                        size="xl"
+                        className="hover:ring-4 hover:ring-yellow-400/50 transition"
                       />
-                    ) : (
-                      <div className="mb-3">
-                        <DefaultAvatar
-                          name={person.name}
-                          size="w-20 h-20"
-                          className="hover:ring-4 hover:ring-yellow-400/50 transition"
-                        />
-                      </div>
-                    )}
+                    </div>
 
                     <h3 className="text-white font-semibold text-center hover:text-yellow-400 transition flex items-center gap-1">
                       {person.name}

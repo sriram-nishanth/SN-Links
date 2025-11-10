@@ -204,9 +204,9 @@ const EnhancedFriends = ({ searchQuery }) => {
             onClick={() => navigate(`/profile/${friend.id}`)}
           >
             <Avatar
-              image={friend.profileImage}
-              username={friend.name}
-              size="w-10 h-10 sm:w-12 sm:h-12"
+              src={friend.profileImage}
+              name={friend.name}
+              size="medium"
               className="flex-shrink-0 hover:ring-2 hover:ring-yellow-400/50 transition"
             />
 

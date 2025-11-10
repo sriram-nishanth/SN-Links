@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import { useTranslation } from "react-i18next";
 import { useUser } from "../Context/UserContext";
-import DefaultAvatar from "./DefaultAvatar";
+import Avatar from "./Avatar";
 import Toast from './Toast';
 import { ProfileSkeleton } from "./LoadingSkeleton";
 import bgProfile from '../assets/bgprofile.png';
@@ -256,25 +256,14 @@ const AccountSlide = () => {
 
 
 
-          {user.profileImage && user.profileImage.trim() !== "" ? (
-            <img
+          <div className="absolute left-1/2 -bottom-12 sm:-bottom-16 transform -translate-x-1/2">
+            <Avatar
               src={user.profileImage}
-              alt={`${user.name}'s profile`}
-              className="absolute left-1/2 -bottom-12 sm:-bottom-16 transform -translate-x-1/2 w-20 h-20 sm:w-24 sm:h-24 rounded-xl object-cover border-4 border-[#1A1A1A] transition-transform duration-300 group-hover:scale-110 shadow-lg"
-              onError={(e) => {
-                e.target.style.display = "none";
-                e.target.nextSibling.style.display = "flex";
-              }}
+              name={user.name}
+              size="2xl"
+              className="border-4 border-[#1A1A1A] transition-transform duration-300 group-hover:scale-110 shadow-lg"
             />
-          ) : (
-            <div className="absolute left-1/2 -bottom-12 sm:-bottom-16 transform -translate-x-1/2">
-              <DefaultAvatar
-                name={user.name}
-                size="w-20 h-20 sm:w-24 sm:h-24"
-                className="border-4 border-[#1A1A1A] transition-transform duration-300 group-hover:scale-110 shadow-lg"
-              />
-            </div>
-          )}
+          </div>
         </div>
 
         {/* Card Content */}

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useUser } from "../Context/UserContext";
 import { useSocket } from "../Context/SocketContext";
-import DefaultAvatar from "./DefaultAvatar";
+import Avatar from "./Avatar";
 import FollowButton from "./FollowButton";
 import Toast from "./Toast";
 import {
@@ -480,18 +480,11 @@ const EnhancedPostSlide = ({ searchQuery }) => {
       {/* Create Post Section */}
       <div className="bg-[#1A1A1A]/40 backdrop-blur-2xl rounded-xl p-4 sm:p-6">
         <div className="flex gap-3 sm:gap-4">
-          {user?.profileImage ? (
-            <img
-              src={user.profileImage}
-              alt="Profile"
-              className="w-10 h-10 sm:w-12 sm:h-12 rounded-full object-cover"
-            />
-          ) : (
-            <DefaultAvatar
-              name={user?.name || "User"}
-              size="w-10 h-10 sm:w-12 sm:h-12"
-            />
-          )}
+          <Avatar
+            src={user?.profileImage}
+            name={user?.name || "User"}
+            size="medium"
+          />
           <div className="flex-1">
             <textarea
               value={newPost}
@@ -565,21 +558,13 @@ const EnhancedPostSlide = ({ searchQuery }) => {
             {/* Post Header */}
             <div className="flex justify-between items-start mb-4">
               <div className="flex gap-3 items-center flex-1">
-                {post.author.profileImage ? (
-                  <img
-                    src={post.author.profileImage}
-                    alt={post.author.name}
-                    className="w-10 h-10 sm:w-12 sm:h-12 rounded-full object-cover cursor-pointer hover:ring-2 hover:ring-yellow-400"
-                    onClick={() => navigate(`/profile/${post.author.id}`)}
-                  />
-                ) : (
-                  <DefaultAvatar
-                    name={post.author.name}
-                    size="w-10 h-10 sm:w-12 sm:h-12"
-                    className="cursor-pointer hover:ring-2 hover:ring-yellow-400"
-                    onClick={() => navigate(`/profile/${post.author.id}`)}
-                  />
-                )}
+                <Avatar
+                  src={post.author.profileImage}
+                  name={post.author.name}
+                  size="medium"
+                  className="cursor-pointer hover:ring-2 hover:ring-yellow-400"
+                  onClick={() => navigate(`/profile/${post.author.id}`)}
+                />
                 <div className="flex-1">
                   <h3
                     className="text-white font-semibold cursor-pointer hover:text-yellow-400 transition"
@@ -751,9 +736,10 @@ const EnhancedPostSlide = ({ searchQuery }) => {
                 <div className="space-y-3">
                   {post.comments?.map((comment, index) => (
                     <div key={index} className="flex gap-3">
-                      <DefaultAvatar
+                      <Avatar
+                        src={comment.user?.profileImage}
                         name={comment.user?.name || "User"}
-                        size="w-8 h-8"
+                        size="small"
                       />
                       <div className="flex-1 bg-gray-800 rounded-lg p-3">
                         <p className="text-white font-semibold text-sm">

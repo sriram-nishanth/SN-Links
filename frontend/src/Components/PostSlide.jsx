@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { assert, ProfileData } from "../utils/assest";
 import { useUser } from "../Context/UserContext";
 import { useSocket } from "../Context/SocketContext";
-import DefaultAvatar from "./DefaultAvatar";
+import Avatar from "./Avatar";
 import {
   FaRegHeart,
   FaHeart,
@@ -684,20 +684,12 @@ const PostSlide = ({ searchQuery }) => {
       {/*Upload Post Box */}
       <div className="bg-[#1A1A1A]/40 backdrop-blur-3xl p-3 sm:p-4 rounded-2xl space-y-3 sm:space-y-4">
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
-          {userProfile?.profileImage &&
-          userProfile.profileImage.trim() !== "" ? (
-            <img
-              src={userProfile.profileImage}
-              alt={userProfile.name}
-              className="w-10 h-10 rounded-full object-cover border-2 border-yellow-400/30"
-            />
-          ) : (
-            <DefaultAvatar
-              name={userProfile?.name}
-              size="w-10 h-10"
-              className="border-2 border-yellow-400/30"
-            />
-          )}
+          <Avatar
+            src={userProfile?.profileImage}
+            name={userProfile?.name}
+            size="medium"
+            className="border-2 border-yellow-400/30"
+          />
           <div className="flex-1 flex flex-col sm:flex-row gap-2 w-full">
             <input
               type="text"
@@ -776,22 +768,14 @@ const PostSlide = ({ searchQuery }) => {
           {/* User Info */}
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center">
-              {post.author.profileImage &&
-              post.author.profileImage.trim() !== "" ? (
-                <img
+              <div onClick={() => navigate(`/profile/${post.author.id}`)}>
+                <Avatar
                   src={post.author.profileImage}
-                  alt={post.author.username}
-                  className="w-10 h-10 sm:w-12 sm:h-12 rounded-full object-cover cursor-pointer hover:ring-2 hover:ring-yellow-400/50 transition"
-                  onClick={() => navigate(`/profile/${post.author.id}`)}
-                />
-              ) : (
-                <DefaultAvatar
                   name={post.author.name}
-                  size="w-10 h-10 sm:w-12 sm:h-12"
+                  size="medium"
                   className="cursor-pointer hover:ring-2 hover:ring-yellow-400/50 transition"
-                  onClick={() => navigate(`/profile/${post.author.id}`)}
                 />
-              )}
+              </div>
               <div className="ml-3">
                 <h2 className="font-semibold text-sm sm:text-base">
                   {post.author.name}
@@ -998,10 +982,10 @@ const PostSlide = ({ searchQuery }) => {
                   className="flex items-center justify-between bg-[#2A2A2A] p-2 rounded-lg"
                 >
                   <div className="flex items-center gap-2 sm:gap-3">
-                    <img
-                      src={friend.profileImage}
-                      alt={friend.name}
-                      className="w-6 h-6 sm:w-8 sm:h-8 rounded-full"
+                    <Avatar
+                    src={friend.profileImage}
+                    name={friend.name}
+                    size="w-6 h-6 sm:w-8 sm:h-8"
                     />
                     <p className="text-white text-xs sm:text-sm">
                       {friend.name}

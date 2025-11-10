@@ -6,7 +6,7 @@ import { useSocket } from "../Context/SocketContext";
 import { useTranslation } from "react-i18next";
 import axios from "axios";
 import { useUser } from "../Context/UserContext";
-import DefaultAvatar from "../Components/DefaultAvatar";
+import Avatar from "../Components/Avatar";
 import { ProfileData, chatData, Posts, Friend } from "../utils/assest";
 
 const Profile = () => {
@@ -33,12 +33,9 @@ const Profile = () => {
   const [modalLoading, setModalLoading] = useState(false);
   const [modalError, setModalError] = useState(null);
   const [toast, setToast] = useState({ message: "", type: "" });
+  const [isFollowing, setIsFollowing] = useState(false);
 
   const isOwnProfile = user?._id === userId;
-  const isFollowing = userProfile?.followers?.some(
-    (follower) =>
-      (typeof follower === "string" ? follower : follower?._id) === user?._id
-  );
 
   // Get token helper
   const getToken = () => {
@@ -181,6 +178,14 @@ const Profile = () => {
         if (response.data.success && response.data.data) {
           setUserProfile(response.data.data);
           console.log("Profile set successfully:", response.data.data.name);
+          
+          // Check if current user is following this profile
+          const profileData = response.data.data;
+          const isUserFollowing = profileData?.followers?.some(
+            (follower) =>
+              (typeof follower === "string" ? follower : follower?._id) === user?._id
+          );
+          setIsFollowing(isUserFollowing || false);
         } else {
           console.error("API returned success=false or no data");
           setUserProfile(null);
@@ -715,46 +720,18 @@ const Profile = () => {
           {/* Profile Card - Left */}
           <div className="bg-[#1A1A1A]/40 backdrop-blur-2xl w-full lg:w-1/3 p-4 sm:p-6 lg:p-8 flex flex-col items-center gap-3 sm:gap-4 lg:gap-6 rounded-2xl lg:sticky lg:top-24">
             <div className="relative">
-              {currentProfileImage || profile.profileImage ? (
-                <div className="relative">
-                  {!profileImageLoaded && (
-                    <div
-                      className={`w-20 h-20 sm:w-24 sm:h-24 lg:w-32 lg:h-32 rounded-full bg-gradient-to-br from-gray-600 to-gray-800 animate-pulse ring-2 ${
-                        isOwnProfile
-                          ? "ring-yellow-400/50 cursor-pointer hover:ring-yellow-400/80 hover:scale-105"
-                          : "ring-yellow-400/50"
-                      }`}
-                    />
-                  )}
-                  <img
-                    src={currentProfileImage || profile.profileImage}
-                    alt={profile.name}
-                    className={`w-20 h-20 sm:w-24 sm:h-24 lg:w-32 lg:h-32 rounded-full object-cover shadow-xl ring-2 transition-all duration-300 ${
-                      profileImageLoaded
-                        ? "opacity-100 scale-100"
-                        : "opacity-0 scale-95"
-                    } ${
-                      isOwnProfile
-                        ? "ring-yellow-400/50 cursor-pointer hover:ring-yellow-400/80 hover:scale-105"
-                        : "ring-yellow-400/50"
-                    }`}
-                    onClick={handleImageClick}
-                    onLoad={() => setProfileImageLoaded(true)}
-                    onError={() => setProfileImageLoaded(false)}
-                  />
-                </div>
-              ) : (
-                <DefaultAvatar
+              <div onClick={handleImageClick}>
+                <Avatar
+                  src={currentProfileImage || profile.profileImage}
                   name={profile.name}
-                  size="w-20 h-20 sm:w-24 sm:h-24 lg:w-32 lg:h-32"
-                  className={`ring-2 transition-all ${
+                  size="4xl"
+                  className={`shadow-xl ring-2 transition-all ${
                     isOwnProfile
                       ? "ring-yellow-400/50 cursor-pointer hover:ring-yellow-400/80 hover:scale-105"
                       : "ring-yellow-400/50"
                   }`}
-                  onClick={handleImageClick}
                 />
-              )}
+              </div>
               {isOwnProfile && (
                 <div className="absolute bottom-0 right-0 bg-yellow-400 text-black rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold shadow-lg">
                   ✏️
@@ -928,10 +905,11 @@ const Profile = () => {
             </h3>
 
             <div className="flex flex-col items-center gap-4">
-              <img
+              <Avatar
                 src={currentProfileImage}
-                alt="New profile"
-                className="w-32 h-32 rounded-full object-cover ring-2 ring-yellow-400/50"
+                name={profile.name}
+                size="4xl"
+                className="ring-2 ring-yellow-400/50"
               />
 
               <div className="flex gap-3 w-full">
@@ -984,17 +962,21 @@ const Profile = () => {
                     key={modalUser._id}
                     className="flex items-center justify-between p-3 bg-[#2A2A2A] rounded-lg"
                   >
-                    <div className="flex items-center gap-3">
-                      <img
-                        src={
-                          modalUser.profileImage ||
-                          `https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=40&h=40&fit=crop&crop=face`
-                        }
-                        alt={modalUser.name}
-                        className="w-10 h-10 rounded-full object-cover"
+                    <div 
+                      className="flex items-center gap-3 cursor-pointer"
+                      onClick={() => {
+                        navigate(`/profile/${modalUser._id}`);
+                        closeModal();
+                      }}
+                    >
+                      <Avatar
+                        src={modalUser.profileImage}
+                        name={modalUser.name}
+                        size="medium"
+                        className="hover:ring-2 hover:ring-yellow-400/50 transition"
                       />
                       <div>
-                        <p className="text-white font-medium">
+                        <p className="text-white font-medium hover:text-yellow-400 transition">
                           {modalUser.name}
                         </p>
                         <p className="text-gray-400 text-sm">

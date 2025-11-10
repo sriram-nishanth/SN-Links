@@ -147,7 +147,7 @@ const Setting = () => {
 
   // Fetch all settings in parallel
   const fetchSettings = async () => {
-  const token = getToken();
+  const token = user?.token || getToken();
   if (!token) {
   console.error("No token found for settings fetch");
   setIsLoadingSettings(false);
@@ -155,14 +155,14 @@ const Setting = () => {
   const activityLogs = localStorage.getItem("activityLogs");
   if (activityLogs) setActivityLogs(JSON.parse(activityLogs));
 
-    const privacy = localStorage.getItem("privacySettings");
-    if (privacy) setPrivacySettings(JSON.parse(privacy));
+  const privacy = localStorage.getItem("privacySettings");
+  if (privacy) setPrivacySettings(JSON.parse(privacy));
 
-    const notifications = localStorage.getItem("notificationsEnabled");
-      if (notifications !== null) setNotificationsEnabled(JSON.parse(notifications));
+  const notifications = localStorage.getItem("notificationsEnabled");
+  if (notifications !== null) setNotificationsEnabled(JSON.parse(notifications));
 
-      const apps = localStorage.getItem("connectedApps");
-    if (apps) setConnectedApps(JSON.parse(apps));
+  const apps = localStorage.getItem("connectedApps");
+  if (apps) setConnectedApps(JSON.parse(apps));
 
   setSelectedLanguage(i18n.language || "en");
   return;
@@ -353,10 +353,10 @@ const Setting = () => {
   };
 
   const handleSaveLanguage = async () => {
-    if (selectedLanguage !== i18n.language) {
-      try {
-        const token = getToken();
-        if (token) {
+  if (selectedLanguage !== i18n.language) {
+  try {
+  const token = user?.token || getToken();
+  if (token) {
           const response = await fetch(`${API_BASE_URL}/user/language`, {
             method: "PUT",
             headers: {
@@ -397,13 +397,13 @@ const Setting = () => {
 
   // Profile save handler
   const handleSaveProfile = async () => {
-    setIsSavingProfile(true);
-    try {
-      const token = getToken();
-      if (!token) {
-        setToast({ type: "error", message: "Authentication required!" });
-        return;
-      }
+  setIsSavingProfile(true);
+  try {
+  const token = user?.token || getToken();
+  if (!token) {
+  setToast({ type: "error", message: "Authentication required!" });
+  return;
+  }
 
       const response = await fetch(`${API_BASE_URL}/user/profile`, {
         method: "PUT",
@@ -457,12 +457,12 @@ const Setting = () => {
   // Connected apps handler
   const handleConnectApp = async (app) => {
   const updatedApps = { ...connectedApps, [app]: !connectedApps[app] };
-    setConnectedApps(updatedApps);
-    localStorage.setItem("connectedApps", JSON.stringify(updatedApps));
+  setConnectedApps(updatedApps);
+  localStorage.setItem("connectedApps", JSON.stringify(updatedApps));
 
-    try {
-      const token = getToken();
-      if (token) {
+  try {
+  const token = user?.token || getToken();
+  if (token) {
         const response = await fetch(`${API_BASE_URL}/user/apps`, {
           method: "PUT",
           headers: {
@@ -500,12 +500,12 @@ const Setting = () => {
   }
 
   const updatedApps = { ...connectedApps, [newAppName.toLowerCase()]: true };
-    setConnectedApps(updatedApps);
-    localStorage.setItem("connectedApps", JSON.stringify(updatedApps));
+  setConnectedApps(updatedApps);
+  localStorage.setItem("connectedApps", JSON.stringify(updatedApps));
 
-    try {
-      const token = getToken();
-      if (token) {
+  try {
+  const token = user?.token || getToken();
+  if (token) {
         const response = await fetch(`${API_BASE_URL}/user/apps`, {
           method: "PUT",
           headers: {
@@ -554,13 +554,13 @@ const Setting = () => {
   }
 
   try {
-  const token = getToken();
+  const token = user?.token || getToken();
   if (!token) {
-      setToast({ type: "error", message: "Authentication required!" });
-      return;
-    }
+  setToast({ type: "error", message: "Authentication required!" });
+  return;
+  }
 
-    const response = await fetch(`${API_BASE_URL}/user/password`, {
+  const response = await fetch(`${API_BASE_URL}/user/password`, {
         method: "PUT",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -596,13 +596,13 @@ const Setting = () => {
 
   // Privacy settings handler
   const handlePrivacyChange = async (setting, value) => {
-    const updatedSettings = { ...privacySettings, [setting]: value };
-    setPrivacySettings(updatedSettings);
-    localStorage.setItem("privacySettings", JSON.stringify(updatedSettings));
+  const updatedSettings = { ...privacySettings, [setting]: value };
+  setPrivacySettings(updatedSettings);
+  localStorage.setItem("privacySettings", JSON.stringify(updatedSettings));
 
-    try {
-      const token = getToken();
-      if (token) {
+  try {
+  const token = user?.token || getToken();
+  if (token) {
         const response = await fetch(`${API_BASE_URL}/user/privacy`, {
           method: "PUT",
           headers: {
@@ -959,8 +959,8 @@ const Setting = () => {
                     <div className="flex items-center gap-4">
                       <div className="relative">
                         <Avatar
-                        image={profileImagePreview || user?.profileImage}
-                        username={profile.username}
+                        src={profileImagePreview || user?.profileImage}
+                        name={profile.fullName || user?.name}
                         size="w-16 h-16 sm:w-20 sm:h-20"
                         className="border-2 border-yellow-400"
                         />
@@ -1563,9 +1563,10 @@ const Setting = () => {
                 <div className="mb-4">
                   {currentImageType === "profile" ? (
                     <div className="w-24 h-24 mx-auto rounded-full border-2 border-yellow-400 overflow-hidden">
-                      <DefaultAvatar
-                        image={profileImagePreview || user?.profileImage}
-                        username={user?.name}
+                      <Avatar
+                        src={profileImagePreview || user?.profileImage}
+                        name={user?.name}
+                        size="3xl"
                         className="w-full h-full"
                       />
                     </div>

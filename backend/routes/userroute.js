@@ -13,28 +13,12 @@ router.post('/user/auth/google', googleAuthToken);
 router.get('/user/auth/google', googleAuth);
 router.get('/user/auth/google/callback', googleAuthCallback);
 
-// Protected routes
+// Protected routes (Specific routes BEFORE dynamic :userId route!)
 router.get('/user/profile', protect, getUserProfile);
 router.put('/user/profile', protect, updateUserProfile);
 router.get('/user/all', protect, getAllUsers);
-router.get('/user/:userId', protect, getUserById);
 
-// Follow/Unfollow routes
-router.post('/user/follow/:userId', protect, followUser);
-router.delete('/user/unfollow/:userId', protect, unfollowUser);
-router.get('/user/followers', protect, getFollowers);
-
-// Followers/Following lists for any user
-router.get('/user/:userId/followers', protect, getUserFollowers);
-router.get('/user/:userId/following', protect, getUserFollowing);
-
-// Profile image upload route
-router.put('/user/profile/image', protect, upload.single('profileImage'), updateProfileImage);
-
-// Cover image upload route
-router.put('/user/profile/cover', protect, upload.single('coverImage'), updateCoverImage);
-
-// Settings routes
+// Settings routes (MUST be before /user/:userId to avoid parameter matching)
 router.get('/user/activity', protect, getActivityLogs);
 router.get('/user/apps', protect, getConnectedApps);
 router.put('/user/apps', protect, updateConnectedApps);
@@ -46,5 +30,23 @@ router.get('/user/notifications', protect, getNotifications);
 router.put('/user/notifications', protect, updateNotifications);
 router.put('/user/password', protect, updatePassword);
 router.delete('/user/delete', protect, deleteUser);
+
+// Profile image upload route
+router.put('/user/profile/image', protect, upload.single('profileImage'), updateProfileImage);
+
+// Cover image upload route
+router.put('/user/profile/cover', protect, upload.single('coverImage'), updateCoverImage);
+
+// Follow/Unfollow routes
+router.post('/user/follow/:userId', protect, followUser);
+router.delete('/user/unfollow/:userId', protect, unfollowUser);
+router.get('/user/followers', protect, getFollowers);
+
+// Followers/Following lists for any user
+router.get('/user/:userId/followers', protect, getUserFollowers);
+router.get('/user/:userId/following', protect, getUserFollowing);
+
+// Dynamic user route (MUST be LAST to avoid matching specific routes above!)
+router.get('/user/:userId', protect, getUserById);
 
 export default router;

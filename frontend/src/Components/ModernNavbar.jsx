@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { NavLink, useNavigate, Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useUser } from '../Context/UserContext';
-import DefaultAvatar from './DefaultAvatar';
+import Avatar from './Avatar';
 import { assert } from '../utils/assest';
 import {
   HiHome,
@@ -204,17 +204,12 @@ const ModernNavbar = ({ searchQuery, setSearchQuery }) => {
                 >
                   {/* User Avatar */}
                   <div className="relative">
-                    {user?.profileImage ? (
-                      <img
-                        src={user.profileImage}
-                        alt="Profile"
-                        className="w-10 h-10 sm:w-12 sm:h-12 rounded-full object-cover border-2 border-gray-700 group-hover:border-yellow-400 transition-all duration-200 cursor-pointer"
-                      />
-                    ) : (
-                      <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white font-bold text-lg border-2 border-gray-700 group-hover:border-yellow-400 transition-all duration-200 cursor-pointer">
-                        {getUserInitials()}
-                      </div>
-                    )}
+                    <Avatar 
+                      src={user?.profileImage} 
+                      name={user?.name}
+                      size="medium"
+                      className="border-2 border-gray-700 group-hover:border-yellow-400 transition-all duration-200 cursor-pointer"
+                    />
                     {/* Online indicator */}
                     <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-gray-900"></span>
                   </div>
@@ -367,17 +362,11 @@ const ModernNavbar = ({ searchQuery, setSearchQuery }) => {
             <div className="p-4">
               {/* User Info */}
               <div className="flex items-center gap-3 pb-4 mb-4 border-b border-gray-800">
-                {user?.profileImage ? (
-                  <img
-                    src={user.profileImage}
-                    alt="Profile"
-                    className="w-12 h-12 rounded-full object-cover"
-                  />
-                ) : (
-                  <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white font-bold text-lg">
-                    {getUserInitials()}
-                  </div>
-                )}
+                <Avatar 
+                  src={user?.profileImage} 
+                  name={user?.name}
+                  size="large"
+                />
                 <div>
                   <p className="text-white font-semibold text-sm">
                     {user?.name || 'User'}

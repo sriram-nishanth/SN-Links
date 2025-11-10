@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useUser } from "../Context/UserContext";
 import Toast from "./Toast";
+import Avatar from "./Avatar";
 
 const Friends = ({ searchQuery }) => {
   const navigate = useNavigate();
@@ -219,21 +220,14 @@ const Friends = ({ searchQuery }) => {
         >
           {/* Left Section */}
           <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
-            {friend.profileImage && friend.profileImage.trim() !== "" ? (
-              <img
+            <div onClick={() => navigate(`/profile/${friend.id}`)}>
+              <Avatar
                 src={friend.profileImage}
-                alt={friend.name}
-                className="w-10 h-10 sm:w-12 sm:h-12 rounded-full object-cover flex-shrink-0 cursor-pointer hover:ring-2 hover:ring-yellow-400/50 transition"
-                onClick={() => navigate(`/profile/${friend.id}`)}
-              />
-            ) : (
-              <DefaultAvatar
                 name={friend.name}
-                size="w-10 h-10 sm:w-12 sm:h-12"
+                size="medium"
                 className="flex-shrink-0 cursor-pointer hover:ring-2 hover:ring-yellow-400/50 transition"
-                onClick={() => navigate(`/profile/${friend.id}`)}
               />
-            )}
+            </div>
             <div className="min-w-0 flex-1">
               <h3 className="text-white font-medium flex items-center gap-1 text-sm sm:text-base truncate">
                 <span
