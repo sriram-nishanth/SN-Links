@@ -1563,7 +1563,7 @@ const Setting = () => {
                 <div className="mb-4">
                   {currentImageType === "profile" ? (
                     <div className="w-24 h-24 mx-auto rounded-full border-2 border-yellow-400 overflow-hidden">
-                      <Avatar
+                      <DefaultAvatar
                         image={profileImagePreview || user?.profileImage}
                         username={user?.name}
                         className="w-full h-full"

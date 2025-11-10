@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useUser } from "../Context/UserContext";
-import DefaultAvatar from "./DefaultAvatar";
+import Avatar from "./Avatar";
 import FollowButton from "./FollowButton";
 import Toast from "./Toast";
 import axios from "axios";
@@ -203,19 +203,12 @@ const EnhancedFriends = ({ searchQuery }) => {
             className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0 cursor-pointer"
             onClick={() => navigate(`/profile/${friend.id}`)}
           >
-            {friend.profileImage && friend.profileImage.trim() !== "" ? (
-              <img
-                src={friend.profileImage}
-                alt={friend.name}
-                className="w-10 h-10 sm:w-12 sm:h-12 rounded-full object-cover flex-shrink-0 hover:ring-2 hover:ring-yellow-400/50 transition"
-              />
-            ) : (
-              <DefaultAvatar
-                name={friend.name}
-                size="w-10 h-10 sm:w-12 sm:h-12"
-                className="flex-shrink-0 hover:ring-2 hover:ring-yellow-400/50 transition"
-              />
-            )}
+            <Avatar
+              image={friend.profileImage}
+              username={friend.name}
+              size="w-10 h-10 sm:w-12 sm:h-12"
+              className="flex-shrink-0 hover:ring-2 hover:ring-yellow-400/50 transition"
+            />
 
             <div className="min-w-0 flex-1">
               <h3 className="text-white font-medium flex items-center gap-1 text-sm sm:text-base truncate hover:text-yellow-400 transition">
