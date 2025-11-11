@@ -1,3 +1,4 @@
+import { Toaster } from "react-hot-toast";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { createBrowserRouter, RouterProvider } from "react-router-dom";
@@ -67,6 +68,7 @@ createRoot(document.getElementById("root")).render(
       <UserProvider>
         <SocketProvider>
           <RouterProvider router={router} />
+          <Toaster />
         </SocketProvider>
       </UserProvider>
     </I18nextProvider>

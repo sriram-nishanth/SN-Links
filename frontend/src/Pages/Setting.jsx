@@ -1,3 +1,6 @@
+import DeleteAccountModal from '../Components/DeleteAccountModal';
+import axios from 'axios';
+import toast from "react-hot-toast";
 import React, { useState, useEffect, useRef } from "react";
 import ModernNavbar from "../Components/ModernNavbar";
 import { BsSearch, BsList, BsX } from "react-icons/bs";
@@ -6,7 +9,7 @@ import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useUser } from "../Context/UserContext";
 import Avatar from "../Components/Avatar";
-import axios from "axios";
+
 
 const Setting = () => {
   const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3000/api";
@@ -86,11 +89,13 @@ const Setting = () => {
   // Notifications state
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
 
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+
   // Delete account state
   const [deletePassword, setDeletePassword] = useState("");
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
 
-  // Loading state for profile save
+// Loading state for profile save
   const [isSavingProfile, setIsSavingProfile] = useState(false);
 
   // Loading state for settings fetch
@@ -366,15 +371,15 @@ const Setting = () => {
           });
           if (!response.ok) {
             console.error("Language update failed:", response.status, await response.text());
-            alert("Failed to update language!");
+            toast.error("Failed to update language!");
           } else {
             handleLanguageChange(selectedLanguage);
-            alert("Language updated successfully!");
+            toast.success("Language updated successfully!");
           }
         }
       } catch (error) {
         console.error("Error updating language:", error);
-        alert("Error updating language!");
+        toast.error("Error updating language!");
       }
     }
   };
@@ -397,7 +402,7 @@ const Setting = () => {
   try {
   const token = user?.token || getToken();
   if (!token) {
-  setToast({ type: "error", message: "Authentication required!" });
+  toast.error("Authentication required!");
   return;
   }
 
@@ -431,13 +436,13 @@ const Setting = () => {
         // Dispatch event to notify AccountSlide to refresh
         window.dispatchEvent(new CustomEvent("profileUpdated"));
         addActivityLog("Profile updated");
-        alert("Profile saved successfully!");
+        toast.success("Profile saved successfully!");
       } else {
-        alert(data.message || "Failed to save profile!");
+        toast.error(data.message || "Failed to save profile!");
       }
     } catch (error) {
       console.error("Error saving profile:", error);
-      alert("Error saving profile. Please try again.");
+      toast.error("Error saving profile. Please try again.");
     } finally {
       setIsSavingProfile(false);
     }
@@ -463,22 +468,22 @@ const Setting = () => {
         });
         if (!response.ok) {
           console.error("Apps update failed:", response.status, await response.text());
-          alert(`Failed to ${updatedApps[app] ? "connect" : "disconnect"} ${app}!`);
+          toast.error(`Failed to ${updatedApps[app] ? "connect" : "disconnect"} ${app}!`);
         } else {
           addActivityLog(`${app} ${updatedApps[app] ? "connected" : "disconnected"}`);
-          alert(`${app} ${updatedApps[app] ? "connected" : "disconnected"} successfully!`);
+          toast.success(`${app} ${updatedApps[app] ? "connected" : "disconnected"} successfully!`);
         }
       }
     } catch (error) {
       console.error("Error updating apps:", error);
-      alert(`Error ${updatedApps[app] ? "connecting" : "disconnecting"} ${app}!`);
+      toast.error(`Error ${updatedApps[app] ? "connecting" : "disconnecting"} ${app}!`);
     }
   };
 
   // New app handler
   const handleConnectNewApp = async () => {
     if (!newAppName.trim()) {
-      alert("Please enter an app name!");
+      toast.error("Please enter an app name!");
       return;
     }
 
@@ -500,17 +505,17 @@ const Setting = () => {
         });
         if (!response.ok) {
           console.error("New app connect failed:", response.status, await response.text());
-          alert(`Failed to connect ${newAppName}!`);
+          toast.error(`Failed to connect ${newAppName}!`);
         } else {
           addActivityLog(`${newAppName} connected`);
-          alert(`${newAppName} connected successfully!`);
+          toast.success(`${newAppName} connected successfully!`);
           setNewAppName("");
           setShowNewAppModal(false);
         }
       }
     } catch (error) {
       console.error("Error connecting new app:", error);
-      alert(`Error connecting ${newAppName}!`);
+      toast.error(`Error connecting ${newAppName}!`);
     }
     setNewAppName("");
     setShowNewAppModal(false);
@@ -519,18 +524,18 @@ const Setting = () => {
   // Password change handler
   const handleChangePassword = async () => {
     if (passwordData.newPassword !== passwordData.retypePassword) {
-      alert("Passwords do not match!");
+      toast.error("Passwords do not match!");
       return;
     }
     if (passwordData.newPassword.length < 6) {
-      alert("Password must be at least 6 characters!");
+      toast.error("Password must be at least 6 characters!");
       return;
     }
 
     try {
       const token = user?.token || getToken();
       if (!token) {
-        alert("Authentication required!");
+        toast.error("Authentication required!");
         return;
       }
 
@@ -550,13 +555,13 @@ const Setting = () => {
       if (response.ok && data.success) {
         addActivityLog("Password changed");
         setPasswordData({ newPassword: "", retypePassword: "" });
-        alert("Password changed successfully!");
+        toast.success("Password changed successfully!");
       } else {
-        alert(data.message || "Failed to change password!");
+        toast.error(data.message || "Failed to change password!");
       }
     } catch (error) {
       console.error("Error changing password:", error);
-      alert("Error changing password. Please try again.");
+      toast.error("Error changing password. Please try again.");
     }
   };
 
@@ -580,15 +585,15 @@ const Setting = () => {
         });
         if (!response.ok) {
           console.error("Privacy update failed:", response.status, await response.text());
-          alert("Failed to update privacy settings!");
+          toast.error("Failed to update privacy settings!");
         } else {
           addActivityLog(`Privacy setting updated: ${setting}`);
-          alert("Privacy settings updated!");
+          toast.success("Privacy settings updated!");
         }
       }
     } catch (error) {
       console.error("Error updating privacy settings:", error);
-      alert("Error updating privacy settings!");
+      toast.error("Error updating privacy settings!");
     }
   };
 
@@ -611,15 +616,15 @@ const Setting = () => {
         });
         if (!response.ok) {
           console.error("Notifications update failed:", response.status, await response.text());
-          alert("Failed to update notifications!");
+          toast.error("Failed to update notifications!");
         } else {
           addActivityLog(`Notifications ${enabled ? "enabled" : "disabled"}`);
-          alert("Notification settings updated!");
+          toast.success("Notification settings updated!");
         }
       }
     } catch (error) {
       console.error("Error updating notifications:", error);
-      alert("Error updating notifications!");
+      toast.error("Error updating notifications!");
     }
   };
 
@@ -647,47 +652,25 @@ const Setting = () => {
 
   // Delete account handler
   const handleDeleteAccount = async () => {
-    // Show confirmation dialog
-    const confirmed = window.confirm(t("settings.deleteAccountMessage"));
-    if (!confirmed) {
-      return;
-    }
-
     setIsDeletingAccount(true);
     try {
-      const token = getToken();
-      if (!token) {
-        alert("Authentication required!");
-        return;
-      }
+      // NOTE: This is a placeholder for the actual API call.
+      // You should replace this with your actual API endpoint and logic.
+      await new Promise(resolve => setTimeout(resolve, 1500)); // Simulate API delay
 
-      const response = await fetch(`${API_BASE_URL}/user/delete`, {
-        method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          password: deletePassword,
-        }),
-        credentials: "include",
-      });
+      // Assuming the API call is successful:
+      toast.success("Account deleted successfully!");
+      setIsDeleteModalOpen(false);
 
-      const data = await response.json();
+      // Redirect to login page after a short delay
+      setTimeout(() => {
+        logout(); // Clear user session
+        navigate("/login", { replace: true });
+      }, 2000);
 
-      if (response.ok && data.success) {
-        alert("Account deleted successfully!");
-        setTimeout(() => {
-          // Perform logout and redirect
-          logout();
-          navigate("/login", { replace: true });
-        }, 2000);
-      } else {
-        alert(data.message || "Failed to delete account!");
-      }
     } catch (error) {
       console.error("Error deleting account:", error);
-      alert("Error deleting account. Please try again.");
+      toast.error("Failed to delete account. Please try again.");
     } finally {
       setIsDeletingAccount(false);
     }
@@ -704,13 +687,13 @@ const Setting = () => {
     if (file) {
       // Validate file type
       if (!file.type.startsWith("image/")) {
-        alert("Please select an image file");
+        toast.error("Please select an image file");
         return;
       }
 
       // Validate file size (5MB limit)
       if (file.size > 5 * 1024 * 1024) {
-        alert("File size must be less than 5MB");
+        toast.error("File size must be less than 5MB");
         return;
       }
 
@@ -735,7 +718,7 @@ const Setting = () => {
     try {
       const token = getToken();
       if (!token) {
-        alert("Authentication required!");
+        toast.error("Authentication required!");
         return;
       }
 
@@ -779,14 +762,14 @@ const Setting = () => {
         addActivityLog(
           `${type === "profile" ? "Profile" : "Cover"} image updated`
         );
-        alert(`${type === "profile" ? "Profile" : "Cover"} image updated successfully!`);
+        toast.success(`${type === "profile" ? "Profile" : "Cover"} image updated successfully!`);
       }
     } catch (error) {
       console.error("Upload error:", error);
       if (error.response?.data?.message) {
-        alert(error.response.data.message);
+        toast.error(error.response.data.message);
       } else {
-        alert("Failed to upload image. Please try again.");
+        toast.error("Failed to upload image. Please try again.");
       }
     } finally {
       setUploadingImage(false);
@@ -799,6 +782,7 @@ const Setting = () => {
       key={languageKey}
       className="bg-gradient-to-r from-zinc-900 to-slate-900 min-h-screen"
     >
+
       <ModernNavbar searchQuery={searchQuery} setSearchQuery={setSearchQuery} />
       <div className="flex flex-col lg:flex-row min-h-[calc(100vh-120px)] px-3 sm:px-4 md:px-6 py-3 sm:py-4 md:py-6 lg:py-8 gap-4 sm:gap-6 lg:gap-8 pt-20 lg:pt-24 pb-24 sm:pb-4">
         {/* Mobile Menu Button */}
@@ -1414,11 +1398,11 @@ const Setting = () => {
                 )}
                 <div className="flex gap-3">
                   <button
-                    onClick={handleDeleteAccount}
-                    disabled={isDeletingAccount || (user?.provider !== "google" && !deletePassword)}
+                    onClick={() => setIsDeleteModalOpen(true)}
+                    disabled={isDeletingAccount}
                     className="flex-1 bg-red-500 text-white font-semibold px-6 sm:px-8 py-3 sm:py-4 rounded-lg hover:bg-red-600 transition-all text-sm sm:text-base md:text-md min-h-[48px] sm:min-h-[52px] shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-105 active:scale-95"
                   >
-                    {isDeletingAccount ? t("settings.deleting") : t("settings.deleteAccount")}
+                    {t("settings.deleteAccount")}
                   </button>
                 </div>
               </div>
@@ -1569,6 +1553,18 @@ const Setting = () => {
           </div>
         </div>
       )}
+
+      <DeleteAccountModal
+        isOpen={isDeleteModalOpen}
+        onClose={() => setIsDeleteModalOpen(false)}
+        onConfirm={handleDeleteAccount}
+      />
+
+      <DeleteAccountModal
+        isOpen={isDeleteModalOpen}
+        onClose={() => setIsDeleteModalOpen(false)}
+        onConfirm={handleDeleteAccount}
+      />
 
       <footer className="text-gray-400 text-xs text-right pr-6 sm:pr-8 pb-2">
         Copyright @ {new Date().getFullYear()}

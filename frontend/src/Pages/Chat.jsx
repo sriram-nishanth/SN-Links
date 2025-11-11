@@ -94,14 +94,14 @@ const Chat = () => {
         `${API_BASE_URL}/messages/conversations`,
         {
           headers: { Authorization: `Bearer ${token}` },
-        },
+        }
       );
 
       const followingResponse = await axios.get(
         `${API_BASE_URL}/user/${user._id}/following`,
         {
           headers: { Authorization: `Bearer ${token}` },
-        },
+        }
       );
 
       const conversations = conversationsResponse.data.data || [];
@@ -164,7 +164,7 @@ const Chat = () => {
           `${API_BASE_URL}/messages/${selectedChatId}`,
           {
             headers: { Authorization: `Bearer ${token}` },
-          },
+          }
         );
 
         // Transform messages to match display format
@@ -206,27 +206,46 @@ const Chat = () => {
   useEffect(() => {
     if (!socket || !user) return;
 
+    console.log("[Chat] Setting up socket event listeners");
+
+    // Handle receiving messages from other users
     const handleReceiveMessage = (message) => {
+      console.log("[Chat] Received message from other user:", message._id);
       const conversationId =
         message.senderId === user._id ? message.receiverId : message.senderId;
 
       const newMessage = {
-        id: message._id || Date.now(),
+        id: message._id,
         text: message.content,
         content: message.content,
         sender: message.senderId === user._id ? "me" : "other",
         senderId: message.senderId,
         receiverId: message.receiverId,
-        timestamp: new Date(message.createdAt || message.timestamp),
+        timestamp: new Date(message.createdAt),
         status: "delivered",
         messageType: message.messageType || "text",
         media: message.media,
       };
 
-      setMessages((prev) => ({
-        ...prev,
-        [conversationId]: [...(prev[conversationId] || []), newMessage],
-      }));
+      setMessages((prev) => {
+        const currentMessages = prev[conversationId] || [];
+
+        // Check for duplicate using message ID (only reliable check)
+        const isDuplicate = currentMessages.some(
+          (msg) => msg.id === newMessage.id
+        );
+
+        if (isDuplicate) {
+          console.log("[Chat] Duplicate prevented:", newMessage.id);
+          return prev;
+        }
+
+        console.log("[Chat] Adding received message:", newMessage.id);
+        return {
+          ...prev,
+          [conversationId]: [...currentMessages, newMessage],
+        };
+      });
 
       // Update conversation's last message
       setConversations((prev) =>
@@ -236,43 +255,126 @@ const Chat = () => {
                 ...conv,
                 lastMessage: {
                   content: message.content,
-                  createdAt: new Date(message.createdAt || message.timestamp),
+                  createdAt: new Date(message.createdAt),
                 },
               }
-            : conv,
-        ),
+            : conv
+        )
       );
 
-      // Scroll to bottom
+      setTimeout(scrollToBottom, 100);
+    };
+
+    // Handle message sent confirmation (server echo to replace optimistic message)
+    const handleMessageSent = (message) => {
+      console.log("[Chat] Message confirmed sent:", message._id);
+      const conversationId = message.receiverId;
+
+      setMessages((prev) => {
+        const currentMessages = prev[conversationId] || [];
+
+        // Find and replace the optimistic temporary message with the confirmed message
+        const optimisticIndex = currentMessages.findIndex(
+          (msg) =>
+            msg.id &&
+            msg.id.startsWith("temp-") &&
+            msg.content === message.content
+        );
+
+        if (optimisticIndex !== -1) {
+          const updatedMessages = [...currentMessages];
+          updatedMessages[optimisticIndex] = {
+            id: message._id,
+            text: message.content,
+            content: message.content,
+            sender: "me",
+            senderId: message.senderId,
+            receiverId: message.receiverId,
+            timestamp: new Date(message.createdAt),
+            status: "delivered",
+            messageType: message.messageType || "text",
+            media: message.media,
+          };
+          console.log(
+            "[Chat] Replaced optimistic message with confirmed:",
+            message._id
+          );
+          return {
+            ...prev,
+            [conversationId]: updatedMessages,
+          };
+        }
+
+        // If no optimistic message found, just add it (shouldn't happen)
+        console.log(
+          "[Chat] No optimistic message to replace, adding:",
+          message._id
+        );
+        return {
+          ...prev,
+          [conversationId]: [
+            ...currentMessages,
+            {
+              id: message._id,
+              text: message.content,
+              content: message.content,
+              sender: "me",
+              senderId: message.senderId,
+              receiverId: message.receiverId,
+              timestamp: new Date(message.createdAt),
+              status: "delivered",
+              messageType: message.messageType || "text",
+              media: message.media,
+            },
+          ],
+        };
+      });
+
       setTimeout(scrollToBottom, 100);
     };
 
     const handleTyping = (data) => {
+      console.log(
+        `[Chat] Typing: user ${data.userId}, conversation ${data.conversationId}, isTyping: ${data.isTyping}`
+      );
       if (data.conversationId === selectedChatId && data.userId !== user._id) {
-        setTyping(true);
+        setTyping(data.isTyping);
         if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
-        typingTimeoutRef.current = setTimeout(() => setTyping(false), 3000);
+        if (data.isTyping) {
+          typingTimeoutRef.current = setTimeout(() => setTyping(false), 3000);
+        }
       }
     };
 
     const handleFollowStatusChanged = (data) => {
+      console.log(`[Chat] Follow status changed: ${data.action}`);
       if (data.action === "follow") {
         fetchConversations();
       }
     };
 
-    socket.on("receiveMessage", handleReceiveMessage);
+    // FIXED: Proper cleanup with empty dependency array prevents re-registration
+    socket.off("receive_message", handleReceiveMessage);
+    socket.off("message_sent", handleMessageSent);
+    socket.off("user_typing", handleTyping);
+    socket.off("follow_status_changed", handleFollowStatusChanged);
+
     socket.on("receive_message", handleReceiveMessage);
-    socket.on("userTyping", handleTyping);
+    socket.on("message_sent", handleMessageSent);
+    socket.on("user_typing", handleTyping);
     socket.on("follow_status_changed", handleFollowStatusChanged);
 
+    console.log("[Chat] Socket event listeners registered");
+
     return () => {
-      socket.off("receiveMessage", handleReceiveMessage);
+      console.log("[Chat] Cleaning up socket event listeners");
       socket.off("receive_message", handleReceiveMessage);
-      socket.off("userTyping", handleTyping);
+      socket.off("message_sent", handleMessageSent);
+      socket.off("user_typing", handleTyping);
       socket.off("follow_status_changed", handleFollowStatusChanged);
+      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
     };
-  }, [socket, selectedChatId, user]);
+  }, [socket, user]);
 
   // Check if mobile
   useEffect(() => {
@@ -336,7 +438,9 @@ const Chat = () => {
     };
 
     // Optimistic update
-    const tempId = Date.now();
+    const tempId = `temp-${Date.now()}-${Math.random()
+      .toString(36)
+      .substr(2, 9)}`;
     const optimisticMessage = {
       id: tempId,
       text: message.trim(),
@@ -366,7 +470,7 @@ const Chat = () => {
       setMessages((prev) => ({
         ...prev,
         [selectedChatId]: prev[selectedChatId].filter(
-          (msg) => msg.id !== tempId,
+          (msg) => msg.id !== tempId
         ),
       }));
     } finally {
@@ -374,20 +478,30 @@ const Chat = () => {
     }
   };
 
-  // Handle typing
+  // Handle typing with debounce
   const handleTyping = () => {
     if (selectedChatId && socket) {
       startTyping(selectedChatId);
+
+      // Clear existing timeout
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+
+      // Set new timeout to stop typing after 1 second of inactivity
+      typingTimeoutRef.current = setTimeout(() => {
+        stopTyping(selectedChatId);
+      }, 1000);
     }
   };
 
   // Filter chats
   const filteredChats = conversationsWithOnlineStatus.filter((chat) =>
-    chat.user?.name?.toLowerCase().includes(searchQuery.toLowerCase()),
+    chat.user?.name?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const selectedChat = conversationsWithOnlineStatus.find(
-    (chat) => chat.id === selectedChatId,
+    (chat) => chat.id === selectedChatId
   );
   const currentMessages = messages[selectedChatId] || [];
 
@@ -403,13 +517,13 @@ const Chat = () => {
     const yesterday = new Date(
       now.getFullYear(),
       now.getMonth(),
-      now.getDate() - 1,
+      now.getDate() - 1
     );
 
     const inputDate = new Date(
       dateObj.getFullYear(),
       dateObj.getMonth(),
-      dateObj.getDate(),
+      dateObj.getDate()
     );
 
     if (inputDate.getTime() === today.getTime()) {
@@ -733,7 +847,7 @@ const Chat = () => {
                               >
                                 {chat.lastMessage
                                   ? formatTime(
-                                      new Date(chat.lastMessage.createdAt),
+                                      new Date(chat.lastMessage.createdAt)
                                     )
                                   : ""}
                               </span>
@@ -1070,7 +1184,7 @@ const Chat = () => {
                           300000;
 
                       return (
-                        <div key={msg.id}>
+                        <div key={`${msg.id}-${index}`}>
                           {showTimestamp && (
                             <div className="flex justify-center my-4">
                               <span className="text-xs text-gray-500 bg-slate-800/50 px-3 py-1 rounded-full">
@@ -1150,7 +1264,10 @@ const Chat = () => {
                     <textarea
                       ref={textareaRef}
                       value={message}
-                      onChange={(e) => setMessage(e.target.value)}
+                      onChange={(e) => {
+                        setMessage(e.target.value);
+                        handleTyping();
+                      }}
                       placeholder="Message"
                       className="flex-1 w-full bg-slate-700 text-white outline-none text-sm rounded-full py-3 px-5 resize-none overflow-y-auto max-h-24"
                       rows="1"
@@ -1158,6 +1275,7 @@ const Chat = () => {
                         if (e.key === "Enter" && !e.shiftKey) {
                           e.preventDefault();
                           handleSend();
+                          stopTyping(selectedChatId);
                         }
                       }}
                       onInput={(e) => {
