@@ -61,6 +61,9 @@ const Chat = () => {
   const textareaRef = useRef(null);
   const typingTimeoutRef = useRef(null);
   const fileInputRef = useRef(null);
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [filePreviewUrl, setFilePreviewUrl] = useState(null);
+  const [selectedFileType, setSelectedFileType] = useState(null);
 
   const API_BASE_URL = "http://localhost:3000/api";
 
@@ -495,6 +498,75 @@ const Chat = () => {
     }
   };
 
+  // Send selected media (image/video)
+  const handleSendMedia = async () => {
+    if (!selectedFile || !selectedChatId || sendingMessage) return;
+
+    setSendingMessage(true);
+
+    const tempId = `temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    const now = new Date();
+
+    try {
+      const token = getToken();
+      const formData = new FormData();
+      formData.append("file", selectedFile);
+
+      const uploadRes = await axios.post(
+        `${API_BASE_URL}/messages/upload`,
+        formData,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "multipart/form-data",
+          },
+        }
+      );
+
+      const fileUrl = uploadRes.data?.data?.url;
+      const fileType = uploadRes.data?.data?.type;
+
+      const payload = {
+        senderId: user._id,
+        receiverId: selectedChatId,
+        content: fileUrl,
+        messageType: fileType,
+        media: fileUrl,
+      };
+
+      const optimisticMessage = {
+        id: tempId,
+        text: "",
+        content: fileUrl,
+        sender: "me",
+        senderId: user._id,
+        receiverId: selectedChatId,
+        timestamp: now,
+        status: "sent",
+        messageType: fileType,
+        media: fileUrl,
+      };
+
+      setMessages((prev) => ({
+        ...prev,
+        [selectedChatId]: [...(prev[selectedChatId] || []), optimisticMessage],
+      }));
+      scrollToBottom();
+
+      sendMessage(payload);
+
+      clearSelectedFile();
+      textareaRef.current?.focus();
+    } catch (error) {
+      setMessages((prev) => ({
+        ...prev,
+        [selectedChatId]: (prev[selectedChatId] || []).filter((msg) => msg.id !== tempId),
+      }));
+    } finally {
+      setSendingMessage(false);
+    }
+  };
+
   // Filter chats
   const filteredChats = conversationsWithOnlineStatus.filter((chat) =>
     chat.user?.name?.toLowerCase().includes(searchQuery.toLowerCase())
@@ -625,6 +697,28 @@ const Chat = () => {
     fileInputRef.current?.click();
   };
 
+  const handleFileChange = (e) => {
+    const file = e.target.files?.[0] || null;
+    if (!file) return;
+
+    const isImage = file.type.startsWith("image/");
+    const isVideo = file.type.startsWith("video/");
+    if (!isImage && !isVideo) return;
+
+    setSelectedFile(file);
+    setSelectedFileType(isImage ? "image" : "video");
+    const preview = URL.createObjectURL(file);
+    setFilePreviewUrl(preview);
+  };
+
+  const clearSelectedFile = () => {
+    if (filePreviewUrl) URL.revokeObjectURL(filePreviewUrl);
+    setSelectedFile(null);
+    setSelectedFileType(null);
+    setFilePreviewUrl(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
   // Common emojis for the picker
   const emojis = [
     "😀",
@@ -727,7 +821,7 @@ const Chat = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-zinc-900 to-slate-900">
       <ModernNavbar searchQuery={searchQuery} setSearchQuery={setSearchQuery} />
-      <div className="flex h-[calc(100vh-80px)] relative overflow-hidden pt-20 pb-20 sm:pb-0">
+      <div className="flex h-[calc(110vh-80px)] relative overflow-hidden pt-20 pb-20 sm:pb-0">
         {/* Mobile Chat List Overlay */}
         <AnimatePresence>
           {isMobile && showMobileChatList && (
@@ -1210,9 +1304,21 @@ const Chat = () => {
                                 }`}
                               >
                                 <div className="flex flex-col">
-                                  <p className="text-sm break-words whitespace-pre-wrap">
-                                    {msg.text || msg.content}
-                                  </p>
+                                  {msg.messageType === "image" && (msg.media || msg.content) ? (
+                                    <img
+                                      src={msg.media || msg.content}
+                                      alt="image"
+                                      className="max-h-64 rounded-md mt-1"
+                                    />
+                                  ) : msg.messageType === "video" && (msg.media || msg.content) ? (
+                                    <video controls className="w-full max-h-64 rounded-md mt-1">
+                                      <source src={msg.media || msg.content} type="video/mp4" />
+                                    </video>
+                                  ) : (
+                                    <p className="text-sm break-words whitespace-pre-wrap">
+                                      {msg.text || msg.content}
+                                    </p>
+                                  )}
                                   <div
                                     className={`flex items-center gap-1 mt-1 text-xs ${
                                       msg.sender === "me"
@@ -1283,13 +1389,34 @@ const Chat = () => {
                         e.target.style.height = e.target.scrollHeight + "px";
                       }}
                     />
-                    <button className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white">
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*,video/*"
+                      className="hidden"
+                      onChange={handleFileChange}
+                    />
+                    {filePreviewUrl && (
+                      <div className="absolute left-3 -top-20 flex items-center gap-2 bg-slate-700 rounded-xl p-2 shadow-lg">
+                        {selectedFileType === "image" ? (
+                          <img src={filePreviewUrl} alt="preview" className="w-16 h-16 object-cover rounded-md" />
+                        ) : (
+                          <div className="w-16 h-16 bg-slate-600 rounded-md flex items-center justify-center text-white">
+                            <IoVideocamOutline className="w-6 h-6" />
+                          </div>
+                        )}
+                        <button onClick={clearSelectedFile} className="text-gray-300 hover:text-white">
+                          <BsX className="w-5 h-5" />
+                        </button>
+                      </div>
+                    )}
+                    <button onClick={handleFileUpload} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white">
                       <FiPaperclip className="w-5 h-5" />
                     </button>
                   </div>
                   <button
-                    onClick={handleSend}
-                    disabled={!message.trim()}
+                    onClick={selectedFile ? handleSendMedia : handleSend}
+                    disabled={!message.trim() && !selectedFile}
                     className="w-12 h-12 bg-green-600 rounded-full flex items-center justify-center hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex-shrink-0"
                   >
                     <IoSend className="w-6 h-6 text-white" />

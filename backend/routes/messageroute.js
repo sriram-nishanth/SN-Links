@@ -4,7 +4,9 @@ import {
   sendMessage,
   markMessagesAsRead,
   getUnreadCount,
-  getConversations
+  getConversations,
+  uploadFile,
+  upload
 } from '../controllers/messagecontrollers.js';
 import protect from '../middleware/auth.js';
 
@@ -21,6 +23,9 @@ router.get('/:userId', getMessages);
 
 // Send a message
 router.post('/', sendMessage);
+
+// Upload file
+router.post('/upload', upload.single('file'), uploadFile);
 
 // Mark messages as read from a specific user
 router.put('/read/:senderId', markMessagesAsRead);

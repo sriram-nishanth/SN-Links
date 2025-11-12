@@ -13,7 +13,8 @@ const messageSchema = new mongoose.Schema({
   },
   content: {
     type: String,
-    required: true,
+    // Only required for text messages
+    required: function() { return this.messageType === 'text'; },
     trim: true
   },
   messageType: {
@@ -23,7 +24,9 @@ const messageSchema = new mongoose.Schema({
   },
   media: {
     type: String, // URL for media files
-    default: null
+    default: null,
+    // Required for image/video messages
+    required: function() { return ['image', 'video'].includes(this.messageType); }
   },
   isRead: {
     type: Boolean,
@@ -43,6 +46,7 @@ const messageSchema = new mongoose.Schema({
 messageSchema.index({ sender: 1, receiver: 1, createdAt: -1 });
 messageSchema.index({ receiver: 1, isRead: 1 });
 
-const Message = mongoose.model('Message', messageSchema);
+// Prevent recompilation in hot-reload/serverless environments
+const Message = mongoose.models.Message || mongoose.model('Message', messageSchema);
 
 export default Message;
