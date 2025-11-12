@@ -40,14 +40,12 @@ export const createPost = async (req, res) => {
 
     if (req.body) {
       content = req.body.content || "";
-      isVideo = req.body.isVideo === "true" || req.body.isVideo === true;
     }
 
     const userId = req.user._id;
 
     console.log("Parsed data:", {
       content,
-      isVideo,
       userId,
       hasBody: !!req.body,
     });
@@ -56,6 +54,9 @@ export const createPost = async (req, res) => {
     let mediaUrl = "";
     if (req.files && req.files.length > 0) {
       const file = req.files[0]; // First file
+      // Determine isVideo based on MIME type
+      isVideo = file.mimetype.startsWith("video/");
+      
       const b64 = Buffer.from(file.buffer).toString("base64");
       let dataURI = "data:" + file.mimetype + ";base64," + b64;
 

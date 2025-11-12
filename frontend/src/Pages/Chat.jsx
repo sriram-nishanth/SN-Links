@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
+import toast from "react-hot-toast";
 import {
   BsSearch,
   BsCheck,
@@ -64,6 +65,8 @@ const Chat = () => {
   const [selectedFile, setSelectedFile] = useState(null);
   const [filePreviewUrl, setFilePreviewUrl] = useState(null);
   const [selectedFileType, setSelectedFileType] = useState(null);
+  const [isMuted, setIsMuted] = useState(false);
+  const [isBlocked, setIsBlocked] = useState(false);
 
   const API_BASE_URL = "http://localhost:3000/api";
 
@@ -154,7 +157,7 @@ const Chat = () => {
     }
   }, [user, userLoading]);
 
-  // Fetch messages when chat is selected
+  // Fetch messages and check mute/block status when chat is selected
   useEffect(() => {
     const fetchMessages = async () => {
       if (!selectedChatId) return;
@@ -182,6 +185,7 @@ const Chat = () => {
           status: msg.isRead ? "read" : "delivered",
           messageType: msg.messageType || "text",
           media: msg.media,
+          seen: msg.seen || false,
         }));
 
         setMessages((prev) => ({
@@ -193,7 +197,36 @@ const Chat = () => {
       }
     };
 
+    // Check mute and block status
+    const checkStatusAsync = async () => {
+      if (!selectedChatId) {
+        setIsMuted(false);
+        setIsBlocked(false);
+        return;
+      }
+
+      const token = getToken();
+      if (!token) return;
+
+      try {
+        const [muteRes, blockRes] = await Promise.all([
+          axios.get(`${API_BASE_URL}/user/is-muted/${selectedChatId}`, {
+            headers: { Authorization: `Bearer ${token}` },
+          }),
+          axios.get(`${API_BASE_URL}/user/is-blocked/${selectedChatId}`, {
+            headers: { Authorization: `Bearer ${token}` },
+          }),
+        ]);
+
+        setIsMuted(muteRes.data?.data?.isMuted || false);
+        setIsBlocked(blockRes.data?.data?.isBlocked || false);
+      } catch (error) {
+        console.error("Error checking status:", error);
+      }
+    };
+
     fetchMessages();
+    checkStatusAsync();
   }, [selectedChatId, user]);
 
   // Join room when chat is selected
@@ -202,6 +235,13 @@ const Chat = () => {
       // Create room ID matching backend logic: [userId1, userId2].sort().join('_')
       const roomId = [user._id, selectedChatId].sort().join("_");
       joinRoom(roomId);
+
+      // Emit message_seen event to mark messages as seen
+      socket.emit("message_seen", {
+        senderId: selectedChatId,
+        receiverId: user._id,
+      });
+      console.log("[Chat] Emitted message_seen event");
     }
   }, [selectedChatId, socket, user, joinRoom]);
 
@@ -213,27 +253,36 @@ const Chat = () => {
 
     // Handle receiving messages from other users
     const handleReceiveMessage = (message) => {
-      console.log("[Chat] Received message from other user:", message._id);
-      const conversationId =
-        message.senderId === user._id ? message.receiverId : message.senderId;
+      console.log("[Chat] Received message event:", message);
 
+      // Determine conversation ID
+      const conversationId = message.senderId || message.sender?._id;
+      if (!conversationId) {
+        console.warn("[Chat] Could not determine conversation ID from message");
+        return;
+      }
+
+      // Create message object with proper structure
       const newMessage = {
         id: message._id,
         text: message.content,
         content: message.content,
-        sender: message.senderId === user._id ? "me" : "other",
-        senderId: message.senderId,
+        sender: "other", // Always "other" since this is receive_message event
+        senderId: message.senderId || message.sender?._id,
         receiverId: message.receiverId,
-        timestamp: new Date(message.createdAt),
+        timestamp: new Date(message.createdAt || message.timestamp),
         status: "delivered",
         messageType: message.messageType || "text",
         media: message.media,
+        seen: message.seen || false,
       };
+
+      console.log("[Chat] Processing received message:", newMessage);
 
       setMessages((prev) => {
         const currentMessages = prev[conversationId] || [];
 
-        // Check for duplicate using message ID (only reliable check)
+        // Check for duplicate using message ID
         const isDuplicate = currentMessages.some(
           (msg) => msg.id === newMessage.id
         );
@@ -258,12 +307,30 @@ const Chat = () => {
                 ...conv,
                 lastMessage: {
                   content: message.content,
-                  createdAt: new Date(message.createdAt),
+                  createdAt: new Date(message.createdAt || message.timestamp),
                 },
               }
             : conv
         )
       );
+
+      // Only increment unread count if this chat is not currently open
+      setConversations((prev) => {
+        const isCurrentChatOpen = selectedChatId === conversationId;
+        return prev.map((conv) => {
+          if (conv.user._id === conversationId && !isCurrentChatOpen) {
+            return { ...conv, unreadCount: (conv.unreadCount || 0) + 1 };
+          }
+          return conv;
+        });
+      });
+
+      // Show toast for received message
+      console.log("[Chat] Showing toast notification for received message");
+      toast.success("New message received!", {
+        duration: 3000,
+        position: "bottom-right",
+      });
 
       setTimeout(scrollToBottom, 100);
     };
@@ -297,6 +364,7 @@ const Chat = () => {
             status: "delivered",
             messageType: message.messageType || "text",
             media: message.media,
+            seen: message.seen || false,
           };
           console.log(
             "[Chat] Replaced optimistic message with confirmed:",
@@ -328,6 +396,7 @@ const Chat = () => {
               status: "delivered",
               messageType: message.messageType || "text",
               media: message.media,
+              seen: message.seen || false,
             },
           ],
         };
@@ -356,18 +425,46 @@ const Chat = () => {
       }
     };
 
+    const handleMessagesSeen = (data) => {
+      const { receiverId } = data;
+      console.log(`[Chat] Messages seen by ${receiverId}`);
+
+      // Update all messages sent to this receiver as seen
+      setMessages((prev) =>
+        Object.keys(prev).reduce((acc, conversationId) => {
+          acc[conversationId] = prev[conversationId].map((msg) =>
+            msg.receiverId === receiverId && msg.sender === "me"
+              ? { ...msg, seen: true }
+              : msg
+          );
+          return acc;
+        }, {})
+      );
+
+      // Clear unread count for the conversation
+      setConversations((prev) =>
+        prev.map((conv) =>
+          conv.user._id === receiverId ? { ...conv, unreadCount: 0 } : conv
+        )
+      );
+    };
+
     // FIXED: Proper cleanup with empty dependency array prevents re-registration
     socket.off("receive_message", handleReceiveMessage);
     socket.off("message_sent", handleMessageSent);
     socket.off("user_typing", handleTyping);
     socket.off("follow_status_changed", handleFollowStatusChanged);
+    socket.off("messages_seen", handleMessagesSeen);
 
     socket.on("receive_message", handleReceiveMessage);
     socket.on("message_sent", handleMessageSent);
     socket.on("user_typing", handleTyping);
     socket.on("follow_status_changed", handleFollowStatusChanged);
+    socket.on("messages_seen", handleMessagesSeen);
 
     console.log("[Chat] Socket event listeners registered");
+    console.log("[Chat] Socket ID:", socket.id);
+    console.log("[Chat] Socket connected:", socket.connected);
 
     return () => {
       console.log("[Chat] Cleaning up socket event listeners");
@@ -375,9 +472,10 @@ const Chat = () => {
       socket.off("message_sent", handleMessageSent);
       socket.off("user_typing", handleTyping);
       socket.off("follow_status_changed", handleFollowStatusChanged);
+      socket.off("messages_seen", handleMessagesSeen);
       if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
     };
-  }, [socket, user]);
+  }, [socket, user, selectedChatId]);
 
   // Check if mobile
   useEffect(() => {
@@ -467,6 +565,7 @@ const Chat = () => {
 
     try {
       sendMessage(messageData);
+      toast.success("Message sent!");
       textareaRef.current?.focus();
     } catch (error) {
       // Remove optimistic message on error
@@ -476,6 +575,7 @@ const Chat = () => {
           (msg) => msg.id !== tempId
         ),
       }));
+      toast.error("Failed to send message");
     } finally {
       setSendingMessage(false);
     }
@@ -498,13 +598,99 @@ const Chat = () => {
     }
   };
 
+  // Mute/Unmute conversation
+  const toggleMute = async () => {
+    const token = getToken();
+    if (!token || !selectedChatId) return;
+
+    try {
+      const response = await axios.post(
+        `${API_BASE_URL}/user/mute/${selectedChatId}`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      const isMuted = response.data?.data?.isMuted;
+      toast.success(isMuted ? "Chat muted!" : "Chat unmuted!");
+      setShowMoreOptions(false);
+    } catch (error) {
+      console.error("Error toggling mute:", error);
+      toast.error("Failed to update mute status");
+    }
+  };
+
+  // Clear chat with confirmation
+  const clearChat = async () => {
+    if (!selectedChatId) return;
+
+    const confirmed = window.confirm(
+      "Are you sure you want to delete all messages in this chat? This action cannot be undone."
+    );
+    if (!confirmed) return;
+
+    const token = getToken();
+    if (!token) return;
+
+    try {
+      await axios.delete(`${API_BASE_URL}/messages/${selectedChatId}/clear`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      setMessages((prev) => ({
+        ...prev,
+        [selectedChatId]: [],
+      }));
+
+      toast.success("Chat cleared successfully!");
+      setShowMoreOptions(false);
+    } catch (error) {
+      console.error("Error clearing chat:", error);
+      toast.error("Failed to clear chat");
+    }
+  };
+
+  // Block user with confirmation
+  const blockUser = async () => {
+    if (!selectedChatId) return;
+
+    const confirmed = window.confirm(
+      `Are you sure you want to block ${selectedChat?.user?.name}? You won't be able to send or receive messages from them.`
+    );
+    if (!confirmed) return;
+
+    const token = getToken();
+    if (!token) return;
+
+    try {
+      await axios.post(
+        `${API_BASE_URL}/user/block/${selectedChatId}`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      toast.success("User blocked successfully!");
+
+      // Clear input and disable messaging
+      setMessage("");
+      setShowMoreOptions(false);
+
+      // Optionally navigate away from this chat
+      setSelectedChatId(null);
+    } catch (error) {
+      console.error("Error blocking user:", error);
+      toast.error("Failed to block user");
+    }
+  };
+
   // Send selected media (image/video)
   const handleSendMedia = async () => {
     if (!selectedFile || !selectedChatId || sendingMessage) return;
 
     setSendingMessage(true);
 
-    const tempId = `temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    const tempId = `temp-${Date.now()}-${Math.random()
+      .toString(36)
+      .substr(2, 9)}`;
     const now = new Date();
 
     try {
@@ -554,14 +740,18 @@ const Chat = () => {
       scrollToBottom();
 
       sendMessage(payload);
+      toast.success("Media sent successfully!");
 
       clearSelectedFile();
       textareaRef.current?.focus();
     } catch (error) {
       setMessages((prev) => ({
         ...prev,
-        [selectedChatId]: (prev[selectedChatId] || []).filter((msg) => msg.id !== tempId),
+        [selectedChatId]: (prev[selectedChatId] || []).filter(
+          (msg) => msg.id !== tempId
+        ),
       }));
+      toast.error("Failed to send media");
     } finally {
       setSendingMessage(false);
     }
@@ -611,8 +801,13 @@ const Chat = () => {
   };
 
   // Get status icon
-  const getStatusIcon = (status, sender) => {
+  const getStatusIcon = (status, sender, seen = false) => {
     if (sender !== "me") return null;
+
+    // Show seen status (double checkmarks in blue) if message is seen
+    if (seen) {
+      return <BsCheckAll className="w-4 h-4 text-blue-400" />;
+    }
 
     switch (status) {
       case "sent":
@@ -677,21 +872,8 @@ const Chat = () => {
       .padStart(2, "0")}`;
   };
 
-  const toggleMute = () => {
-    setShowMoreOptions(false);
-  };
-
-  const clearChat = () => {
-    setMessages((prev) => ({
-      ...prev,
-      [selectedChatId]: [],
-    }));
-    setShowMoreOptions(false);
-  };
-
-  const blockUser = () => {
-    setShowMoreOptions(false);
-  };
+  // Placeholder functions - implementation moved above
+  // These are kept here for reference to the UI handlers
 
   const handleFileUpload = () => {
     fileInputRef.current?.click();
@@ -1166,11 +1348,19 @@ const Chat = () => {
                     ></div>
                   </div>
                   <div>
-                    <h3 className="text-white font-semibold text-md">
-                      {selectedChat?.user?.name}
-                    </h3>
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-white font-semibold text-md">
+                        {selectedChat?.user?.name}
+                      </h3>
+                      {isMuted && <span className="text-lg">🔕</span>}
+                      {isBlocked && <span className="text-lg">🚫</span>}
+                    </div>
                     <p className="text-gray-400 text-xs">
-                      {selectedChat?.isOnline ? "Online" : "Offline"}
+                      {isBlocked
+                        ? "User blocked"
+                        : selectedChat?.isOnline
+                        ? "Online"
+                        : "Offline"}
                     </p>
                   </div>
                 </div>
@@ -1304,15 +1494,23 @@ const Chat = () => {
                                 }`}
                               >
                                 <div className="flex flex-col">
-                                  {msg.messageType === "image" && (msg.media || msg.content) ? (
+                                  {msg.messageType === "image" &&
+                                  (msg.media || msg.content) ? (
                                     <img
                                       src={msg.media || msg.content}
                                       alt="image"
                                       className="max-h-64 rounded-md mt-1"
                                     />
-                                  ) : msg.messageType === "video" && (msg.media || msg.content) ? (
-                                    <video controls className="w-full max-h-64 rounded-md mt-1">
-                                      <source src={msg.media || msg.content} type="video/mp4" />
+                                  ) : msg.messageType === "video" &&
+                                    (msg.media || msg.content) ? (
+                                    <video
+                                      controls
+                                      className="w-full max-h-64 rounded-md mt-1"
+                                    >
+                                      <source
+                                        src={msg.media || msg.content}
+                                        type="video/mp4"
+                                      />
                                     </video>
                                   ) : (
                                     <p className="text-sm break-words whitespace-pre-wrap">
@@ -1327,7 +1525,11 @@ const Chat = () => {
                                     } self-end`}
                                   >
                                     <span>{formatTime(msg.timestamp)}</span>
-                                    {getStatusIcon(msg.status, msg.sender)}
+                                    {getStatusIcon(
+                                      msg.status,
+                                      msg.sender,
+                                      msg.seen
+                                    )}
                                   </div>
                                 </div>
                               </div>
@@ -1359,69 +1561,85 @@ const Chat = () => {
 
               {/* Message Input */}
               <div className="p-2 sm:p-4 bg-slate-800 border-t border-slate-700">
-                <div className="flex items-center gap-2 sm:gap-3">
-                  <button
-                    onClick={toggleEmojiPicker}
-                    className="text-gray-400 w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center rounded-full hover:bg-slate-700 flex-shrink-0"
-                  >
-                    <FiSmile className="w-5 h-5" />
-                  </button>
-                  <div className="flex-1 relative">
-                    <textarea
-                      ref={textareaRef}
-                      value={message}
-                      onChange={(e) => {
-                        setMessage(e.target.value);
-                        handleTyping();
-                      }}
-                      placeholder="Message"
-                      className="flex-1 w-full bg-slate-700 text-white outline-none text-sm rounded-full py-3 px-5 resize-none overflow-y-auto max-h-24"
-                      rows="1"
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" && !e.shiftKey) {
-                          e.preventDefault();
-                          handleSend();
-                          stopTyping(selectedChatId);
-                        }
-                      }}
-                      onInput={(e) => {
-                        e.target.style.height = "auto";
-                        e.target.style.height = e.target.scrollHeight + "px";
-                      }}
-                    />
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      accept="image/*,video/*"
-                      className="hidden"
-                      onChange={handleFileChange}
-                    />
-                    {filePreviewUrl && (
-                      <div className="absolute left-3 -top-20 flex items-center gap-2 bg-slate-700 rounded-xl p-2 shadow-lg">
-                        {selectedFileType === "image" ? (
-                          <img src={filePreviewUrl} alt="preview" className="w-16 h-16 object-cover rounded-md" />
-                        ) : (
-                          <div className="w-16 h-16 bg-slate-600 rounded-md flex items-center justify-center text-white">
-                            <IoVideocamOutline className="w-6 h-6" />
-                          </div>
-                        )}
-                        <button onClick={clearSelectedFile} className="text-gray-300 hover:text-white">
-                          <BsX className="w-5 h-5" />
-                        </button>
-                      </div>
-                    )}
-                    <button onClick={handleFileUpload} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white">
-                      <FiPaperclip className="w-5 h-5" />
+                {isBlocked ? (
+                  <div className="flex items-center justify-center py-4 text-red-400">
+                    <span>🚫 You have blocked this user</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 sm:gap-3">
+                    <button
+                      onClick={toggleEmojiPicker}
+                      className="text-gray-400 w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center rounded-full hover:bg-slate-700 flex-shrink-0"
+                    >
+                      <FiSmile className="w-5 h-5" />
+                    </button>
+                    <div className="flex-1 relative">
+                      <textarea
+                        ref={textareaRef}
+                        value={message}
+                        onChange={(e) => {
+                          setMessage(e.target.value);
+                          handleTyping();
+                        }}
+                        placeholder="Message"
+                        className="flex-1 w-full bg-slate-700 text-white outline-none text-sm rounded-full py-3 px-5 resize-none overflow-y-auto max-h-24"
+                        rows="1"
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" && !e.shiftKey) {
+                            e.preventDefault();
+                            handleSend();
+                            stopTyping(selectedChatId);
+                          }
+                        }}
+                        onInput={(e) => {
+                          e.target.style.height = "auto";
+                          e.target.style.height = e.target.scrollHeight + "px";
+                        }}
+                      />
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/*,video/*"
+                        className="hidden"
+                        onChange={handleFileChange}
+                      />
+                      {filePreviewUrl && (
+                        <div className="absolute left-3 -top-20 flex items-center gap-2 bg-slate-700 rounded-xl p-2 shadow-lg">
+                          {selectedFileType === "image" ? (
+                            <img
+                              src={filePreviewUrl}
+                              alt="preview"
+                              className="w-16 h-16 object-cover rounded-md"
+                            />
+                          ) : (
+                            <div className="w-16 h-16 bg-slate-600 rounded-md flex items-center justify-center text-white">
+                              <IoVideocamOutline className="w-6 h-6" />
+                            </div>
+                          )}
+                          <button
+                            onClick={clearSelectedFile}
+                            className="text-gray-300 hover:text-white"
+                          >
+                            <BsX className="w-5 h-5" />
+                          </button>
+                        </div>
+                      )}
+                      <button
+                        onClick={handleFileUpload}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
+                      >
+                        <FiPaperclip className="w-5 h-5" />
+                      </button>
+                    </div>
+                    <button
+                      onClick={selectedFile ? handleSendMedia : handleSend}
+                      disabled={!message.trim() && !selectedFile}
+                      className="w-12 h-12 bg-green-600 rounded-full flex items-center justify-center hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex-shrink-0"
+                    >
+                      <IoSend className="w-6 h-6 text-white" />
                     </button>
                   </div>
-                  <button
-                    onClick={selectedFile ? handleSendMedia : handleSend}
-                    disabled={!message.trim() && !selectedFile}
-                    className="w-12 h-12 bg-green-600 rounded-full flex items-center justify-center hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex-shrink-0"
-                  >
-                    <IoSend className="w-6 h-6 text-white" />
-                  </button>
-                </div>
+                )}
               </div>
             </>
           )}

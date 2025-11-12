@@ -18,7 +18,7 @@ const storage = multer.memoryStorage();
 const upload = multer({
     storage: storage,
     limits: {
-        fileSize: 10 * 1024 * 1024, // 10MB limit
+        fileSize: 100 * 1024 * 1024, // 100MB limit
     },
     fileFilter: (req, file, cb) => {
         // Allow images and videos
@@ -48,6 +48,9 @@ router.post('/post/:id/comment', addComment);
 // Create new post with file upload
 router.post('/posts', upload.any(), createPost);
 
+// Alias route for compatibility with frontend calling /api/post/create
+router.post('/post/create', upload.any(), createPost);
+
 // Like/Unlike post
 router.post('/posts/:postId/like', toggleLike);
 
@@ -57,8 +60,14 @@ router.post('/posts/:postId/comments', addComment);
 // Edit post
 router.put('/posts/:postId', editPost);
 
+// Alias route for edit
+router.put('/post/:postId', editPost);
+
 // Delete post
 router.delete('/posts/:postId', deletePost);
+
+// Alias route for delete
+router.delete('/post/:postId', deletePost);
 
 // Delete comment
 router.delete('/posts/:postId/comments/:commentId', deleteComment);

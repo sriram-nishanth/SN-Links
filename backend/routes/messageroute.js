@@ -6,7 +6,8 @@ import {
   getUnreadCount,
   getConversations,
   uploadFile,
-  upload
+  upload,
+  clearMessages
 } from '../controllers/messagecontrollers.js';
 import protect from '../middleware/auth.js';
 
@@ -32,5 +33,8 @@ router.put('/read/:senderId', markMessagesAsRead);
 
 // Get unread message count
 router.get('/unread/count', getUnreadCount);
+
+// Clear all messages from a conversation
+router.delete('/:conversationId/clear', clearMessages);
 
 export default router;

@@ -145,11 +145,22 @@ export const initializeSocket = (io) => {
           createdAt: message.createdAt,
           timestamp: message.createdAt,
           isRead: message.isRead,
+          seen: message.seen,
         };
 
-        // FIXED: Send to receiver only (not sender, prevents duplication)
-        io.to(receiverId).emit("receive_message", messagePayload);
-        console.log(`[Message Broadcast] To receiver: ${receiverId}, Message ID: ${message._id}`);
+        // FIXED: Get all socket IDs for the receiver user
+        const receiverSockets = activeConnections.get(receiverId) || new Set();
+        console.log(`[Message Broadcast] Receiver ${receiverId} has ${receiverSockets.size} active socket(s)`);
+        
+        // Send to all receiver sockets (in case they have multiple browser tabs open)
+        receiverSockets.forEach((socketId) => {
+          io.to(socketId).emit("receive_message", messagePayload);
+          console.log(`[Message Sent] To socket ${socketId} (user: ${receiverId}), Message ID: ${message._id}`);
+        });
+        
+        if (receiverSockets.size === 0) {
+          console.warn(`[Message Warning] Receiver ${receiverId} is not currently connected`);
+        }
 
         // Send confirmation/echo to sender only - for optimistic update replacement
         socket.emit("message_sent", messagePayload);
@@ -182,6 +193,44 @@ export const initializeSocket = (io) => {
         }
       } catch (error) {
         console.error(`[Mark Read Error]: ${error.message}`);
+      }
+    });
+
+    /**
+     * Mark messages as seen (viewed by receiver)
+     */
+    socket.on("message_seen", async (data) => {
+      try {
+        const { senderId, receiverId } = data;
+        
+        if (!senderId || !receiverId) {
+          socket.emit("message_error", {
+            error: "Missing senderId or receiverId",
+          });
+          return;
+        }
+
+        // Update all messages from sender to receiver as seen
+        await Message.updateMany(
+          { sender: senderId, receiver: receiverId, seen: false },
+          { $set: { seen: true } }
+        );
+
+        console.log(`[Message Seen] Marked messages from ${senderId} to ${receiverId} as seen`);
+
+        // Notify sender about the seen status
+        const senderSockets = activeConnections.get(senderId) || new Set();
+        senderSockets.forEach((socketId) => {
+          io.to(socketId).emit("messages_seen", { receiverId });
+        });
+
+        console.log(`[Message Seen Notification] Sent to sender ${senderId}`);
+      } catch (error) {
+        console.error(`[Message Seen Error]: ${error.message}`);
+        socket.emit("message_error", {
+          error: "Failed to mark messages as seen",
+          details: error.message,
+        });
       }
     });
 

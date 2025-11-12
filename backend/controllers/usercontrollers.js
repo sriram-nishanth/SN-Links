@@ -1284,5 +1284,228 @@ export const deleteUser = async (req, res) => {
   }
 };
 
+// Block a user
+export const blockUser = async (req, res) => {
+  try {
+    const userId = req.user._id; // Current user
+    const targetUserId = req.params.userId; // User to block
+
+    if (userId.toString() === targetUserId) {
+      return res.status(400).json({
+        success: false,
+        message: "Cannot block yourself",
+      });
+    }
+
+    // Check if target user exists
+    const targetUser = await User.findById(targetUserId);
+    if (!targetUser) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    // Check if already blocked
+    const currentUser = await User.findById(userId);
+    if (currentUser.blockedUsers.includes(targetUserId)) {
+      return res.status(200).json({
+        success: true,
+        message: "User already blocked",
+        data: { isBlocked: true },
+      });
+    }
+
+    // Add to blocked users list
+    await User.findByIdAndUpdate(userId, {
+      $push: { blockedUsers: targetUserId },
+    });
+
+    res.status(200).json({
+      success: true,
+      message: "User blocked successfully",
+      data: { isBlocked: true },
+    });
+  } catch (error) {
+    console.error("Block user error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error blocking user",
+    });
+  }
+};
+
+// Unblock a user
+export const unblockUser = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const targetUserId = req.params.userId;
+
+    // Remove from blocked users list
+    await User.findByIdAndUpdate(userId, {
+      $pull: { blockedUsers: targetUserId },
+    });
+
+    res.status(200).json({
+      success: true,
+      message: "User unblocked successfully",
+      data: { isBlocked: false },
+    });
+  } catch (error) {
+    console.error("Unblock user error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error unblocking user",
+    });
+  }
+};
+
+// Mute a conversation
+export const muteConversation = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const targetUserId = req.params.userId;
+
+    if (userId.toString() === targetUserId) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid user ID",
+      });
+    }
+
+    // Check if target user exists
+    const targetUser = await User.findById(targetUserId);
+    if (!targetUser) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    const currentUser = await User.findById(userId);
+
+    // Check if already muted
+    const isMuted = currentUser.mutedConversations.some(
+      (conv) => conv.userId.toString() === targetUserId
+    );
+
+    if (isMuted) {
+      // Unmute if already muted
+      await User.findByIdAndUpdate(
+        userId,
+        {
+          $pull: { mutedConversations: { userId: targetUserId } },
+        },
+        { new: true }
+      );
+
+      return res.status(200).json({
+        success: true,
+        message: "Conversation unmuted successfully",
+        data: { isMuted: false },
+      });
+    }
+
+    // Mute if not already muted
+    await User.findByIdAndUpdate(
+      userId,
+      {
+        $push: {
+          mutedConversations: {
+            userId: targetUserId,
+            isMuted: true,
+            mutedAt: new Date(),
+          },
+        },
+      },
+      { new: true }
+    );
+
+    res.status(200).json({
+      success: true,
+      message: "Conversation muted successfully",
+      data: { isMuted: true },
+    });
+  } catch (error) {
+    console.error("Mute conversation error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error muting conversation",
+    });
+  }
+};
+
+// Get blocked users
+export const getBlockedUsers = async (req, res) => {
+  try {
+    const userId = req.user._id;
+
+    const user = await User.findById(userId).populate("blockedUsers", "name profileImage");
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: user.blockedUsers || [],
+    });
+  } catch (error) {
+    console.error("Get blocked users error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error fetching blocked users",
+    });
+  }
+};
+
+// Check if user is blocked
+export const isUserBlocked = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const targetUserId = req.params.userId;
+
+    const currentUser = await User.findById(userId);
+    const isBlocked = currentUser.blockedUsers.includes(targetUserId);
+
+    res.status(200).json({
+      success: true,
+      data: { isBlocked },
+    });
+  } catch (error) {
+    console.error("Check if user blocked error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error checking block status",
+    });
+  }
+};
+
+// Check if conversation is muted
+export const isConversationMuted = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const targetUserId = req.params.userId;
+
+    const currentUser = await User.findById(userId);
+    const isMuted = currentUser.mutedConversations.some(
+      (conv) => conv.userId.toString() === targetUserId
+    );
+
+    res.status(200).json({
+      success: true,
+      data: { isMuted },
+    });
+  } catch (error) {
+    console.error("Check if conversation muted error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error checking mute status",
+    });
+  }
+};
+
 // Export multer upload middleware for use in routes
 export { upload };

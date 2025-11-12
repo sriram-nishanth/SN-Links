@@ -52,7 +52,25 @@ const userSchema = new mongoose.Schema({
     online: {
         type: Boolean,
         default: false
-    }
+    },
+    blockedUsers: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User'
+    }],
+    mutedConversations: [{
+        userId: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'User'
+        },
+        isMuted: {
+            type: Boolean,
+            default: true
+        },
+        mutedAt: {
+            type: Date,
+            default: Date.now
+        }
+    }]
 }, {
     timestamps: true
 });

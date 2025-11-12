@@ -21,7 +21,7 @@ const storage = multer.diskStorage({
 const upload = multer({
   storage,
   limits: {
-    fileSize: 10 * 1024 * 1024, // 10MB limit
+    fileSize: 100 * 1024 * 1024, // 100MB limit
   },
   fileFilter: (req, file, cb) => {
     const allowedTypes = /jpeg|jpg|png|gif|mp4|mov|avi/;
@@ -207,19 +207,47 @@ export const getUnreadCount = async (req, res) => {
   }
 };
 
-// Get recent conversations
-export const getConversations = async (req, res) => {
+// Clear all messages from a conversation
+export const clearMessages = async (req, res) => {
   try {
+    const { conversationId } = req.params;
     const currentUserId = req.user._id;
 
-    // Get current user to find following/followers
-    const currentUser = await User.findById(currentUserId);
-    if (!currentUser) {
-      return res.status(404).json({
-        success: false,
-        message: "User not found",
-      });
-    }
+    // Delete all messages between current user and the other user
+    const result = await Message.deleteMany({
+      $or: [
+        { sender: currentUserId, receiver: conversationId },
+        { sender: conversationId, receiver: currentUserId },
+      ],
+    });
+
+    res.status(200).json({
+      success: true,
+      message: "Chat cleared successfully",
+      data: { deletedCount: result.deletedCount },
+    });
+  } catch (error) {
+    console.error("Error clearing messages:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to clear messages",
+    });
+  }
+};
+
+// Get recent conversations
+export const getConversations = async (req, res) => {
+   try {
+     const currentUserId = req.user._id;
+
+     // Get current user to find following/followers
+     const currentUser = await User.findById(currentUserId);
+     if (!currentUser) {
+       return res.status(404).json({
+         success: false,
+         message: "User not found",
+       });
+     }
 
     // Convert currentUserId to ObjectId for proper matching
     const mongoose = (await import("mongoose")).default;

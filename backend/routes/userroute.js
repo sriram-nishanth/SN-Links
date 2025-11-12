@@ -1,5 +1,5 @@
 import express from 'express';
-import { createuser, loginUser, googleAuth, googleAuthCallback, googleAuthToken, getUserProfile, updateUserProfile, followUser, unfollowUser, getFollowers, getAllUsers, getUserById, getUserFollowers, getUserFollowing, updateProfileImage, updateCoverImage, upload, getActivityLogs, getConnectedApps, updateConnectedApps, getLanguage, updateLanguage, getPrivacySettings, updatePrivacySettings, getNotifications, updateNotifications, updatePassword, deleteUser } from '../controllers/usercontrollers.js';
+import { createuser, loginUser, googleAuth, googleAuthCallback, googleAuthToken, getUserProfile, updateUserProfile, followUser, unfollowUser, getFollowers, getAllUsers, getUserById, getUserFollowers, getUserFollowing, updateProfileImage, updateCoverImage, upload, getActivityLogs, getConnectedApps, updateConnectedApps, getLanguage, updateLanguage, getPrivacySettings, updatePrivacySettings, getNotifications, updateNotifications, updatePassword, deleteUser, blockUser, unblockUser, muteConversation, getBlockedUsers, isUserBlocked, isConversationMuted } from '../controllers/usercontrollers.js';
 import protect from '../middleware/auth.js';
 
 const router = express.Router();
@@ -41,6 +41,16 @@ router.put('/user/profile/cover', protect, upload.single('coverImage'), updateCo
 router.post('/user/follow/:userId', protect, followUser);
 router.delete('/user/unfollow/:userId', protect, unfollowUser);
 router.get('/user/followers', protect, getFollowers);
+
+// Block/Unblock routes
+router.post('/user/block/:userId', protect, blockUser);
+router.delete('/user/unblock/:userId', protect, unblockUser);
+router.get('/user/blocked', protect, getBlockedUsers);
+router.get('/user/is-blocked/:userId', protect, isUserBlocked);
+
+// Mute conversation routes
+router.post('/user/mute/:userId', protect, muteConversation);
+router.get('/user/is-muted/:userId', protect, isConversationMuted);
 
 // Followers/Following lists for any user
 router.get('/user/:userId/followers', protect, getUserFollowers);

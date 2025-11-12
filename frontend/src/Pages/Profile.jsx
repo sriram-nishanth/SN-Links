@@ -805,11 +805,20 @@ const Profile = () => {
                       className="bg-[#2A2A2A] rounded-lg overflow-hidden"
                     >
                       {post.media && (
-                        <img
-                          src={post.media}
-                          alt="post"
-                          className="w-full h-48 object-cover"
-                        />
+                        post.isVideo ? (
+                          <video
+                            controls
+                            className="w-full h-48 object-cover bg-black"
+                          >
+                            <source src={post.media} type="video/mp4" />
+                          </video>
+                        ) : (
+                          <img
+                            src={post.media}
+                            alt="post"
+                            className="w-full h-48 object-cover"
+                          />
+                        )
                       )}
                       <div className="p-3">
                         <p className="text-sm">{post.content}</p>
@@ -833,7 +842,7 @@ const Profile = () => {
                   {userMedia.map((item, idx) => (
                     <div
                       key={idx}
-                      className="rounded-lg overflow-hidden cursor-pointer hover:scale-105 transition-transform"
+                      className="rounded-lg overflow-hidden cursor-pointer hover:scale-105 transition-transform relative"
                       onClick={() => setSelectedMedia(item)}
                     >
                       {item.type === "image" ? (
@@ -843,9 +852,16 @@ const Profile = () => {
                           className="w-full h-20 sm:h-24 lg:h-32 object-cover"
                         />
                       ) : item.type === "video" ? (
-                        <video className="w-full h-20 sm:h-24 lg:h-32 object-cover">
-                          <source src={item.url} type="video/mp4" />
-                        </video>
+                        <>
+                          <video className="w-full h-20 sm:h-24 lg:h-32 object-cover bg-black">
+                            <source src={item.url} type="video/mp4" />
+                          </video>
+                          <div className="absolute inset-0 flex items-center justify-center bg-black/30 pointer-events-none">
+                            <svg className="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 20 20">
+                              <path d="M6.3 2.841A1.5 1.5 0 004 4.11V15.89a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z" />
+                            </svg>
+                          </div>
+                        </>
                       ) : null}
                     </div>
                   ))}
@@ -865,7 +881,7 @@ const Profile = () => {
         <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4">
           <button
             onClick={() => setSelectedMedia(null)}
-            className="absolute top-4 right-4 sm:top-6 sm:right-6 text-white text-2xl sm:text-3xl font-bold hover:text-yellow-400"
+            className="absolute top-4 right-4 sm:top-6 sm:right-6 text-white text-2xl sm:text-3xl font-bold hover:text-yellow-400 z-10"
           >
             ✖
           </button>
@@ -873,17 +889,17 @@ const Profile = () => {
             <img
               src={selectedMedia.url}
               alt="full-preview"
-              className="max-w-full max-h-full rounded-lg shadow-lg"
+              className="max-w-full max-h-[90vh] rounded-lg shadow-lg"
             />
-          ) : (
+          ) : selectedMedia.type === "video" ? (
             <video
               controls
               autoPlay
-              className="max-w-full max-h-full rounded-lg shadow-lg"
+              className="max-w-full max-h-[90vh] rounded-lg shadow-lg"
             >
               <source src={selectedMedia.url} type="video/mp4" />
             </video>
-          )}
+          ) : null}
         </div>
       )}
 

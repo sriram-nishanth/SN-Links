@@ -2,9 +2,13 @@ import React from "react";
 import { useUser } from "./Context/UserContext";
 import LoginPage from "./Pages/LoginPage";
 import { Navigate } from "react-router-dom";
+import useGlobalNotifications from "./hooks/useGlobalNotifications";
 
 const App = () => {
   const { user, loading } = useUser();
+
+  // Initialize global notifications on all pages
+  useGlobalNotifications();
 
   if (loading) {
     return (

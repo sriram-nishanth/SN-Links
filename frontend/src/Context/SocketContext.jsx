@@ -8,6 +8,7 @@ import React, {
 } from "react";
 import { getSocket, disconnectSocket, isSocketConnected } from "../utils/socket";
 import { useUser } from "./UserContext";
+import { useNotification } from "./NotificationContext";
 
 const SocketContext = createContext();
 
@@ -25,6 +26,7 @@ export const SocketProvider = ({ children }) => {
   const [typingUsers, setTypingUsers] = useState(new Map());
   const [isConnected, setIsConnected] = useState(false);
   const { user } = useUser();
+  const { showMessageNotification } = useNotification();
   const socketRef = useRef(null);
   const connectionAttemptRef = useRef(0);
   const eventListenersRef = useRef(new Set());
@@ -177,6 +179,40 @@ export const SocketProvider = ({ children }) => {
       console.log("[Socket Event] Waiting for online users list...");
     };
 
+    // Handle receiving messages globally (for notifications across all pages)
+    const handleReceiveMessageGlobal = (message) => {
+      console.log("[Socket Event] Received message event:", message);
+      
+      if (!message || !message.sender) {
+        console.log("[Socket Event] Message or sender missing, returning");
+        return;
+      }
+
+      // Get sender name and show notification
+      const senderName = message.sender.name || message.sender._id || "Unknown";
+      const messageType = message.messageType || "text";
+
+      console.log(
+        `[Socket Event] New message from ${senderName}, type: ${messageType}`
+      );
+      console.log(`[Socket Event] Calling showMessageNotification for ${senderName}`);
+
+      // Show notification based on message type
+      if (messageType === "text") {
+        console.log(`[Socket Event] Showing text notification: "${message.content}"`);
+        showMessageNotification(senderName, message.content, "text");
+      } else if (messageType === "image") {
+        console.log(`[Socket Event] Showing image notification`);
+        showMessageNotification(senderName, "", "image");
+      } else if (messageType === "video") {
+        console.log(`[Socket Event] Showing video notification`);
+        showMessageNotification(senderName, "", "video");
+      } else if (messageType === "document") {
+        console.log(`[Socket Event] Showing document notification`);
+        showMessageNotification(senderName, "", "document");
+      }
+    };
+
     // Handle disconnection
     const handleDisconnect = (reason) => {
       console.warn(`[Socket Event] Disconnected: ${reason}`);
@@ -197,6 +233,7 @@ export const SocketProvider = ({ children }) => {
     socketRef.current.off("user_online", handleUserOnline);
     socketRef.current.off("user_offline", handleUserOffline);
     socketRef.current.off("user_typing", handleUserTyping);
+    socketRef.current.off("receive_message", handleReceiveMessageGlobal);
 
     // Register event listeners
     socketRef.current.on("connect", handleConnect);
@@ -206,6 +243,7 @@ export const SocketProvider = ({ children }) => {
     socketRef.current.on("user_online", handleUserOnline);
     socketRef.current.on("user_offline", handleUserOffline);
     socketRef.current.on("user_typing", handleUserTyping);
+    socketRef.current.on("receive_message", handleReceiveMessageGlobal);
 
     console.log("[Socket Event] Event listeners registered");
 
@@ -218,9 +256,10 @@ export const SocketProvider = ({ children }) => {
       socketRef.current?.off("user_online", handleUserOnline);
       socketRef.current?.off("user_offline", handleUserOffline);
       socketRef.current?.off("user_typing", handleUserTyping);
+      socketRef.current?.off("receive_message", handleReceiveMessageGlobal);
       console.log("[Socket Event] Event listeners removed");
     };
-  }, [socketRef.current]);
+  }, [socketRef.current, showMessageNotification]);
 
   // Cleanup on unmount
   useEffect(() => {

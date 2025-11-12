@@ -1,4 +1,6 @@
 import { Toaster } from "react-hot-toast";
+import { ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { createBrowserRouter, RouterProvider } from "react-router-dom";
@@ -6,7 +8,9 @@ import { I18nextProvider } from "react-i18next";
 import i18n from "./i18n"; // Initialize i18n
 import { UserProvider } from "./Context/UserContext";
 import { SocketProvider } from "./Context/SocketContext";
+import { NotificationProvider } from "./Context/NotificationContext";
 import ProtectedRoute from "./Components/ProtectedRoute";
+import GlobalNotificationListener from "./Components/GlobalNotificationListener";
 import "./index.css";
 import App from "./App.jsx";
 import HomePage from "./Pages/HomePage.jsx";
@@ -66,10 +70,26 @@ createRoot(document.getElementById("root")).render(
   <StrictMode>
     <I18nextProvider i18n={i18n}>
       <UserProvider>
-        <SocketProvider>
-          <RouterProvider router={router} />
-          <Toaster />
-        </SocketProvider>
+        <NotificationProvider>
+          <SocketProvider>
+            {/* Global notification listener - handles messages on all pages */}
+            <GlobalNotificationListener />
+            <RouterProvider router={router} />
+            <ToastContainer
+              position="bottom-right"
+              autoClose={4000}
+              hideProgressBar={false}
+              newestOnTop={false}
+              closeOnClick
+              rtl={false}
+              pauseOnFocusLoss
+              draggable
+              pauseOnHover
+              theme="dark"
+            />
+            <Toaster />
+          </SocketProvider>
+        </NotificationProvider>
       </UserProvider>
     </I18nextProvider>
   </StrictMode>,
