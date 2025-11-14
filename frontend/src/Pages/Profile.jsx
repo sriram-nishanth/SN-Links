@@ -34,6 +34,8 @@ const Profile = () => {
   const [modalError, setModalError] = useState(null);
   const [toast, setToast] = useState({ message: "", type: "" });
   const [isFollowing, setIsFollowing] = useState(false);
+  const [followRequestStatus, setFollowRequestStatus] = useState(null);
+  const [isPrivate, setIsPrivate] = useState(false);
 
   const isOwnProfile = user?._id === userId;
 
@@ -179,8 +181,9 @@ const Profile = () => {
           setUserProfile(response.data.data);
           console.log("Profile set successfully:", response.data.data.name);
           
-          // Check if current user is following this profile
           const profileData = response.data.data;
+          setIsPrivate(profileData?.isPrivate || false);
+          
           const isUserFollowing = profileData?.followers?.some(
             (follower) =>
               (typeof follower === "string" ? follower : follower?._id) === user?._id
@@ -232,9 +235,17 @@ const Profile = () => {
       );
 
       if (response.data.success) {
-        setIsFollowing(true);
-        setFollowersCount((prev) => prev + 1);
-        refreshUser();
+        if (response.data.data.status === "requested") {
+          setFollowRequestStatus("requested");
+          setToast({
+            message: "Follow request sent!",
+            type: "success",
+          });
+        } else {
+          setIsFollowing(true);
+          setFollowersCount((prev) => prev + 1);
+          refreshUser();
+        }
       }
     } catch (error) {
       console.error("Error following user:", error);
@@ -257,6 +268,38 @@ const Profile = () => {
     }
   };
 
+  const handleCancelRequest = async () => {
+    try {
+      const token = getToken();
+      if (!token) return;
+
+      const response = await axios.post(
+        `http://localhost:3000/api/user/cancel-request/${userId}`,
+        {},
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      if (response.data.success) {
+        setFollowRequestStatus(null);
+        setToast({
+          message: "Follow request cancelled",
+          type: "success",
+        });
+      }
+    } catch (error) {
+      console.error("Error cancelling follow request:", error);
+      setToast({
+        message: "Failed to cancel follow request",
+        type: "error",
+      });
+    }
+  };
+
   const handleUnfollow = async () => {
     try {
       const token = getToken();
@@ -274,9 +317,9 @@ const Profile = () => {
 
       if (response.data.success) {
         setIsFollowing(false);
+        setFollowRequestStatus(null);
         setFollowersCount((prev) => prev - 1);
         localStorage.removeItem(`followed_${userId}`);
-        // Dispatch custom event to notify PostSlide of follow change
         refreshUser();
       }
     } catch (error) {
@@ -749,24 +792,26 @@ const Profile = () => {
             </p>
 
             {/* Followers/Following */}
-            <div className="flex gap-4 text-center">
-              <div
-                className="cursor-pointer hover:bg-gray-700/50 rounded-lg p-2 transition-colors"
-                onClick={() => openModal("followers")}
-              >
-                <p className="text-lg font-bold">
-                  {profile.followers + followersCount}
-                </p>
-                <p className="text-gray-400 text-sm">Followers</p>
+            {(!isPrivate || isFollowing) && (
+              <div className="flex gap-4 text-center">
+                <div
+                  className="cursor-pointer hover:bg-gray-700/50 rounded-lg p-2 transition-colors"
+                  onClick={() => openModal("followers")}
+                >
+                  <p className="text-lg font-bold">
+                    {profile.followers + followersCount}
+                  </p>
+                  <p className="text-gray-400 text-sm">Followers</p>
+                </div>
+                <div
+                  className="cursor-pointer hover:bg-gray-700/50 rounded-lg p-2 transition-colors"
+                  onClick={() => openModal("following")}
+                >
+                  <p className="text-lg font-bold">{profile.following}</p>
+                  <p className="text-gray-400 text-sm">Following</p>
+                </div>
               </div>
-              <div
-                className="cursor-pointer hover:bg-gray-700/50 rounded-lg p-2 transition-colors"
-                onClick={() => openModal("following")}
-              >
-                <p className="text-lg font-bold">{profile.following}</p>
-                <p className="text-gray-400 text-sm">Following</p>
-              </div>
-            </div>
+            )}
 
             {/* Conditional Button - Edit Profile for own profile, Follow/Unfollow for others */}
             {isOwnProfile ? (
@@ -778,22 +823,43 @@ const Profile = () => {
               </button>
             ) : (
               <button
-                onClick={isFollowing ? handleUnfollow : handleFollow}
+                onClick={() => {
+                  if (isFollowing) handleUnfollow();
+                  else if (followRequestStatus === "requested") handleCancelRequest();
+                  else handleFollow();
+                }}
                 className={`text-sm sm:text-base lg:text-lg font-semibold px-4 sm:px-6 lg:px-8 py-2 rounded-full transition-colors w-full sm:w-auto ${
                   isFollowing
                     ? "bg-gray-600 text-white hover:bg-gray-700"
+                    : followRequestStatus === "requested"
+                    ? "bg-orange-500 text-white hover:bg-orange-600"
                     : "bg-blue-500 text-white hover:bg-blue-600"
                 }`}
               >
-                {isFollowing ? "Unfollow" : "Follow"}
+                {isFollowing ? "Unfollow" : followRequestStatus === "requested" ? "Requested" : "Follow"}
               </button>
             )}
           </div>
 
           {/* Posts and Media Gallery - Right */}
           <div className="flex-1 bg-[#1A1A1A]/40 backdrop-blur-2xl rounded-2xl p-3 sm:p-4 lg:p-6 max-h-[calc(100vh-130px)] overflow-y-auto">
-            {/* User Posts */}
-            {userPosts.length > 0 && (
+            {/* Private Profile Message */}
+            {isPrivate && !isFollowing && (
+              <div className="flex items-center justify-center h-full">
+                <div className="text-center py-12">
+                  <div className="text-5xl mb-4">🔒</div>
+                  <h3 className="text-2xl font-bold text-white mb-2">
+                    This account is private
+                  </h3>
+                  <p className="text-gray-400 text-lg mb-6">
+                    Follow to see their posts
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* User Posts - Only show if not private or if following */}
+            {(!isPrivate || isFollowing) && userPosts.length > 0 && (
               <div className="mb-6">
                 <h2 className="text-base sm:text-lg lg:text-xl font-semibold mb-3 sm:mb-4 text-yellow-400">
                   Posts
@@ -832,7 +898,8 @@ const Profile = () => {
               </div>
             )}
 
-            {/* Media Gallery */}
+            {/* Media Gallery - Only show if not private or if following */}
+            {(!isPrivate || isFollowing) && (
             <div>
               <h2 className="text-base sm:text-lg lg:text-xl font-semibold mb-3 sm:mb-4 text-yellow-400">
                 {t("profile.media")}
@@ -872,6 +939,7 @@ const Profile = () => {
                 </div>
               )}
             </div>
+            )}
           </div>
         </div>
       </div>

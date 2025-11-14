@@ -9,12 +9,14 @@ const FollowButton = ({
   onFollowChange,
   size = "medium",
   className = "",
+  isPrivateAccount = false,
 }) => {
   const { user } = useUser();
   const [isFollowing, setIsFollowing] = useState(initialFollowState);
+  const [requestStatus, setRequestStatus] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  const API_BASE_URL = "http://localhost:3000/api";
+  const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3000/api";
 
   // Get token from cookie or user object
   const getToken = () => {
@@ -32,9 +34,8 @@ const FollowButton = ({
 
   // Handle follow/unfollow action
   const handleFollowToggle = async (e) => {
-    e.stopPropagation(); // Prevent event bubbling
+    e.stopPropagation();
 
-    // Check if user is trying to follow themselves
     if (user?._id === targetUserId) {
       console.warn("Cannot follow yourself");
       return;
@@ -49,44 +50,83 @@ const FollowButton = ({
     setIsLoading(true);
 
     try {
-      const endpoint = isFollowing ? "unfollow" : "follow";
-      const method = isFollowing ? "delete" : "post";
+      if (isFollowing) {
+        // Unfollow
+        const response = await axios({
+          method: "delete",
+          url: `${API_BASE_URL}/user/unfollow/${targetUserId}`,
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        });
 
-      const response = await axios({
-        method: method,
-        url: `${API_BASE_URL}/user/${endpoint}/${targetUserId}`,
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      });
-
-      if (response.data.success) {
-        // Toggle the follow state
-        const newFollowState = !isFollowing;
-        setIsFollowing(newFollowState);
-
-        // Call the callback if provided
-        if (onFollowChange) {
-          onFollowChange(targetUserId, newFollowState, response.data.data);
+        if (response.data.success) {
+          setIsFollowing(false);
+          setRequestStatus(null);
+          if (onFollowChange) {
+            onFollowChange(targetUserId, false, response.data.data);
+          }
+          window.dispatchEvent(
+            new CustomEvent("followStateChanged", {
+              detail: {
+                targetUserId,
+                targetUserName,
+                isFollowing: false,
+                counts: response.data.data,
+              },
+            })
+          );
         }
+      } else if (requestStatus === "requested") {
+        // Cancel follow request
+        const response = await axios({
+          method: "post",
+          url: `${API_BASE_URL}/user/cancel-request/${targetUserId}`,
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        });
 
-        // Dispatch custom event for other components to listen
-        window.dispatchEvent(
-          new CustomEvent("followStateChanged", {
-            detail: {
-              targetUserId,
-              targetUserName,
-              isFollowing: newFollowState,
-              counts: response.data.data,
-            },
-          })
-        );
+        if (response.data.success) {
+          setRequestStatus(null);
+        }
+      } else {
+        // Follow
+        const response = await axios({
+          method: "post",
+          url: `${API_BASE_URL}/user/follow/${targetUserId}`,
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        });
+
+        if (response.data.success) {
+          if (response.data.data.status === "requested") {
+            setRequestStatus("requested");
+          } else {
+            setIsFollowing(true);
+            setRequestStatus(null);
+            if (onFollowChange) {
+              onFollowChange(targetUserId, true, response.data.data);
+            }
+            window.dispatchEvent(
+              new CustomEvent("followStateChanged", {
+                detail: {
+                  targetUserId,
+                  targetUserName,
+                  isFollowing: true,
+                  counts: response.data.data,
+                },
+              })
+            );
+          }
+        }
       }
     } catch (error) {
       console.error("Error toggling follow state:", error);
-      // Revert the state on error
-      setIsFollowing(!isFollowing);
     } finally {
       setIsLoading(false);
     }
@@ -106,26 +146,19 @@ const FollowButton = ({
 
   const sizeClass = sizeClasses[size] || sizeClasses.medium;
 
-  return (
-    <button
-      onClick={handleFollowToggle}
-      disabled={isLoading}
-      className={`
-        font-semibold rounded-lg transition-all duration-200
-        ${sizeClass}
-        ${
-          isFollowing
-            ? "bg-gray-600 text-white hover:bg-gray-700 border border-gray-500"
-            : "bg-yellow-400 text-black hover:bg-yellow-500 border border-yellow-500"
-        }
-        ${isLoading ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}
-        ${className}
-      `}
-      aria-label={
-        isFollowing ? `Unfollow ${targetUserName}` : `Follow ${targetUserName}`
-      }
-    >
-      {isLoading ? (
+  const getButtonStyles = () => {
+    if (isFollowing) {
+      return "bg-gray-600 text-white hover:bg-gray-700 border border-gray-500";
+    } else if (requestStatus === "requested") {
+      return "bg-orange-500 text-white hover:bg-orange-600 border border-orange-500";
+    } else {
+      return "bg-yellow-400 text-black hover:bg-yellow-500 border border-yellow-500";
+    }
+  };
+
+  const getButtonText = () => {
+    if (isLoading) {
+      return (
         <span className="flex items-center gap-1">
           <svg
             className="animate-spin h-4 w-4"
@@ -147,13 +180,34 @@ const FollowButton = ({
               d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
             ></path>
           </svg>
-          Loading...
+          ...
         </span>
-      ) : isFollowing ? (
-        "Following"
-      ) : (
-        "Follow"
-      )}
+      );
+    } else if (isFollowing) {
+      return "Following";
+    } else if (requestStatus === "requested") {
+      return "Requested";
+    } else {
+      return "Follow";
+    }
+  };
+
+  return (
+    <button
+      onClick={handleFollowToggle}
+      disabled={isLoading}
+      className={`
+        font-semibold rounded-lg transition-all duration-200
+        ${sizeClass}
+        ${getButtonStyles()}
+        ${isLoading ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}
+        ${className}
+      `}
+      aria-label={
+        isFollowing ? `Unfollow ${targetUserName}` : `Follow ${targetUserName}`
+      }
+    >
+      {getButtonText()}
     </button>
   );
 };

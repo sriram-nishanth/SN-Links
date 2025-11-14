@@ -26,7 +26,7 @@ export const SocketProvider = ({ children }) => {
   const [typingUsers, setTypingUsers] = useState(new Map());
   const [isConnected, setIsConnected] = useState(false);
   const { user } = useUser();
-  const { showMessageNotification } = useNotification();
+  const { showMessageNotification, showFollowRequestNotification } = useNotification();
   const socketRef = useRef(null);
   const connectionAttemptRef = useRef(0);
   const eventListenersRef = useRef(new Set());
@@ -225,6 +225,16 @@ export const SocketProvider = ({ children }) => {
       console.error(`[Socket Event] Connection error: ${error}`);
     };
 
+    // Handle follow request notification
+    const handleFollowRequest = (data) => {
+      console.log("[Socket Event] Received follow request notification:", data);
+      if (data && data.fromUserId) {
+        // Get the user's name from the notification data
+        const userName = data.fromUserName || "Someone";
+        showFollowRequestNotification(userName);
+      }
+    };
+
     // Remove old listeners first to prevent duplicates
     socketRef.current.off("connect", handleConnect);
     socketRef.current.off("disconnect", handleDisconnect);
@@ -234,6 +244,7 @@ export const SocketProvider = ({ children }) => {
     socketRef.current.off("user_offline", handleUserOffline);
     socketRef.current.off("user_typing", handleUserTyping);
     socketRef.current.off("receive_message", handleReceiveMessageGlobal);
+    socketRef.current.off("followRequest", handleFollowRequest);
 
     // Register event listeners
     socketRef.current.on("connect", handleConnect);
@@ -244,6 +255,7 @@ export const SocketProvider = ({ children }) => {
     socketRef.current.on("user_offline", handleUserOffline);
     socketRef.current.on("user_typing", handleUserTyping);
     socketRef.current.on("receive_message", handleReceiveMessageGlobal);
+    socketRef.current.on("followRequest", handleFollowRequest);
 
     console.log("[Socket Event] Event listeners registered");
 
@@ -257,9 +269,10 @@ export const SocketProvider = ({ children }) => {
       socketRef.current?.off("user_offline", handleUserOffline);
       socketRef.current?.off("user_typing", handleUserTyping);
       socketRef.current?.off("receive_message", handleReceiveMessageGlobal);
+      socketRef.current?.off("followRequest", handleFollowRequest);
       console.log("[Socket Event] Event listeners removed");
     };
-  }, [socketRef.current, showMessageNotification]);
+  }, [socketRef.current, showMessageNotification, showFollowRequestNotification]);
 
   // Cleanup on unmount
   useEffect(() => {

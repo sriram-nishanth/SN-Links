@@ -5,6 +5,7 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { createBrowserRouter, RouterProvider } from "react-router-dom";
 import { I18nextProvider } from "react-i18next";
+import { GoogleOAuthProvider } from "@react-oauth/google";
 import i18n from "./i18n"; // Initialize i18n
 import { UserProvider } from "./Context/UserContext";
 import { SocketProvider } from "./Context/SocketContext";
@@ -19,6 +20,7 @@ import Setting from "./Pages/Setting.jsx";
 import Chat from "./Pages/Chat.jsx";
 import SignupPage from "./Pages/SignupPage.jsx";
 import ExploreUsers from "./Pages/ExploreUsers.jsx";
+import FollowRequests from "./Pages/FollowRequests.jsx";
 
 const router = createBrowserRouter([
   { path: "/", element: <App /> },
@@ -64,33 +66,43 @@ const router = createBrowserRouter([
       </ProtectedRoute>
     ),
   },
+  {
+    path: "/follow-requests",
+    element: (
+      <ProtectedRoute>
+        <FollowRequests />
+      </ProtectedRoute>
+    ),
+  },
 ]);
 
 createRoot(document.getElementById("root")).render(
   <StrictMode>
-    <I18nextProvider i18n={i18n}>
-      <UserProvider>
-        <NotificationProvider>
-          <SocketProvider>
-            {/* Global notification listener - handles messages on all pages */}
-            <GlobalNotificationListener />
-            <RouterProvider router={router} />
-            <ToastContainer
-              position="bottom-right"
-              autoClose={4000}
-              hideProgressBar={false}
-              newestOnTop={false}
-              closeOnClick
-              rtl={false}
-              pauseOnFocusLoss
-              draggable
-              pauseOnHover
-              theme="dark"
-            />
-            <Toaster />
-          </SocketProvider>
-        </NotificationProvider>
-      </UserProvider>
-    </I18nextProvider>
+    <GoogleOAuthProvider clientId={import.meta.env.VITE_GOOGLE_CLIENT_ID}>
+      <I18nextProvider i18n={i18n}>
+        <UserProvider>
+          <NotificationProvider>
+            <SocketProvider>
+              {/* Global notification listener - handles messages on all pages */}
+              <GlobalNotificationListener />
+              <RouterProvider router={router} />
+              <ToastContainer
+                position="bottom-right"
+                autoClose={4000}
+                hideProgressBar={false}
+                newestOnTop={false}
+                closeOnClick
+                rtl={false}
+                pauseOnFocusLoss
+                draggable
+                pauseOnHover
+                theme="dark"
+              />
+              <Toaster />
+            </SocketProvider>
+          </NotificationProvider>
+        </UserProvider>
+      </I18nextProvider>
+    </GoogleOAuthProvider>
   </StrictMode>,
 );

@@ -29,6 +29,15 @@ const userSchema = new mongoose.Schema({
         enum: ['local', 'google'],
         default: 'local'
     },
+    signupMethod: {
+        type: String,
+        enum: ['manual', 'google'],
+        default: 'manual'
+    },
+    isGoogleConnected: {
+        type: Boolean,
+        default: false
+    },
     profileImage: {
         type: String,
         default: ''
@@ -67,6 +76,20 @@ const userSchema = new mongoose.Schema({
             default: true
         },
         mutedAt: {
+            type: Date,
+            default: Date.now
+        }
+    }],
+    isPrivate: {
+        type: Boolean,
+        default: false
+    },
+    followRequests: [{
+        fromUserId: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'User'
+        },
+        createdAt: {
             type: Date,
             default: Date.now
         }

@@ -1,4 +1,5 @@
 import DeleteAccountModal from '../Components/DeleteAccountModal';
+import PrivateAccountToggle from '../Components/PrivateAccountToggle';
 import axios from 'axios';
 import toast from "react-hot-toast";
 import React, { useState, useEffect, useRef } from "react";
@@ -9,6 +10,7 @@ import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useUser } from "../Context/UserContext";
 import Avatar from "../Components/Avatar";
+import { GoogleLogin } from '@react-oauth/google';
 
 
 const Setting = () => {
@@ -24,7 +26,6 @@ const Setting = () => {
   const SelectedIcon = menu.find((m) => m.id === selected)?.icon;
   const { user, updateUser, logout } = useUser();
 
-  // Get token helper
   const getToken = () => {
     const token = document.cookie
       .split("; ")
@@ -33,72 +34,52 @@ const Setting = () => {
     return token;
   };
 
-  // Image upload states
   const [profileImagePreview, setProfileImagePreview] = useState(null);
   const [coverImagePreview, setCoverImagePreview] = useState(null);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [showImageModal, setShowImageModal] = useState(false);
-  const [currentImageType, setCurrentImageType] = useState(""); // 'profile' or 'cover'
+  const [currentImageType, setCurrentImageType] = useState("");
   const profileImageRef = useRef(null);
   const coverImageRef = useRef(null);
   const [hasChanges, setHasChanges] = useState(false);
-   const [initialProfile, setInitialProfile] = useState({
-     fullName: "",
-     username: "",
-   email: "",
-   bio: "",
-   });
-
-   // Profile state
-   const [profile, setProfile] = useState({
-     fullName: "",
-     username: "",
-     email: "",
-     bio: "",
-   });
-
-  // Connected apps state
-  const [connectedApps, setConnectedApps] = useState({
-    google: false,
-    facebook: false,
+  const [initialProfile, setInitialProfile] = useState({
+    fullName: "",
+    username: "",
+    email: "",
+    bio: "",
   });
 
-  // New app modal state
-  const [showNewAppModal, setShowNewAppModal] = useState(false);
-  const [newAppName, setNewAppName] = useState("");
+  const [profile, setProfile] = useState({
+    fullName: "",
+    username: "",
+    email: "",
+    bio: "",
+  });
 
-  // Password change state
+  const [googleStatus, setGoogleStatus] = useState({
+    isConnected: false,
+    signupMethod: 'manual',
+  });
+  const [isConnectingGoogle, setIsConnectingGoogle] = useState(false);
+  const [isDisconnectingGoogle, setIsDisconnectingGoogle] = useState(false);
+
   const [passwordData, setPasswordData] = useState({
     newPassword: "",
     retypePassword: "",
   });
 
-  // Activity logs state
   const [activityLogs, setActivityLogs] = useState([]);
 
-  // Privacy settings state
   const [privacySettings, setPrivacySettings] = useState({
     privateAccount: false,
     showActivityStatus: true,
-    twoFactorAuth: {
-      useAuthApp: true,
-      useSms: true,
-    },
   });
 
-  // Notifications state
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
-
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-
-  // Delete account state
   const [deletePassword, setDeletePassword] = useState("");
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
-
-// Loading state for profile save
   const [isSavingProfile, setIsSavingProfile] = useState(false);
-
-  // Loading state for settings fetch
   const [isLoadingSettings, setIsLoadingSettings] = useState(true);
 
   // Detect changes in profile
@@ -107,151 +88,133 @@ const Setting = () => {
     setHasChanges(changed);
   }, [profile, initialProfile]);
 
-  // Load data from backend on component mount
   useEffect(() => {
-  const fetchUserProfile = async () => {
-  try {
-  const token = user?.token || getToken();
-  if (!token) {
-  console.error("No user token for profile fetch");
-    return;
+    const fetchUserProfile = async () => {
+      try {
+        const token = user?.token || getToken();
+        if (!token) {
+          console.error("No user token for profile fetch");
+          return;
         }
 
-  const response = await fetch(`${API_BASE_URL}/user/profile`, {
-  method: "GET",
-  headers: {
-  Authorization: `Bearer ${token}`,
-    "Content-Type": "application/json",
-    },
+        const response = await fetch(`${API_BASE_URL}/user/profile`, {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
           credentials: "include",
-  });
+        });
 
-  if (response.ok) {
-    const data = await response.json();
-    if (data.success) {
-      const initialProfile = {
-        fullName: data.data.name || "",
-        username: `@${data.data.name.toLowerCase().replace(/\s+/g, "")}` || "",
-        email: data.data.email || "",
-      bio: data.data.bio || "",
-  };
-  setProfile(initialProfile);
-    setInitialProfile(initialProfile);
-    }
-    } else {
-    console.error("Profile fetch failed:", response.status, await response.text());
-    }
-    } catch (error) {
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success) {
+            const initialProfile = {
+              fullName: data.data.name || "",
+              username: `@${data.data.name.toLowerCase().replace(/\s+/g, "")}` || "",
+              email: data.data.email || "",
+              bio: data.data.bio || "",
+            };
+            setProfile(initialProfile);
+            setInitialProfile(initialProfile);
+            setGoogleStatus({
+              isConnected: data.data.isGoogleConnected || false,
+              signupMethod: data.data.signupMethod || 'manual',
+            });
+          }
+        } else {
+          console.error("Profile fetch failed:", response.status, await response.text());
+        }
+      } catch (error) {
         console.error("Error fetching user profile:", error);
-    }
+      }
     };
 
-  fetchUserProfile();
+    fetchUserProfile();
 
-  // Fetch all settings in parallel
-  const fetchSettings = async () => {
-  const token = user?.token || getToken();
-  if (!token) {
-  console.error("No token found for settings fetch");
-  setIsLoadingSettings(false);
-  // Load from localStorage
-  const activityLogs = localStorage.getItem("activityLogs");
-  if (activityLogs) setActivityLogs(JSON.parse(activityLogs));
+    const fetchSettings = async () => {
+      const token = user?.token || getToken();
+      if (!token) {
+        console.error("No token found for settings fetch");
+        setIsLoadingSettings(false);
+        const activityLogs = localStorage.getItem("activityLogs");
+        if (activityLogs) setActivityLogs(JSON.parse(activityLogs));
 
-  const privacy = localStorage.getItem("privacySettings");
-  if (privacy) setPrivacySettings(JSON.parse(privacy));
+        const privacy = localStorage.getItem("privacySettings");
+        if (privacy) setPrivacySettings(JSON.parse(privacy));
 
-  const notifications = localStorage.getItem("notificationsEnabled");
-  if (notifications !== null) setNotificationsEnabled(JSON.parse(notifications));
+        const notifications = localStorage.getItem("notificationsEnabled");
+        if (notifications !== null) setNotificationsEnabled(JSON.parse(notifications));
 
-  const apps = localStorage.getItem("connectedApps");
-  if (apps) setConnectedApps(JSON.parse(apps));
+        setSelectedLanguage(i18n.language || "en");
+        return;
+      }
 
-  setSelectedLanguage(i18n.language || "en");
-  return;
-  }
+      const settingsPromises = [
+        fetch(`${API_BASE_URL}/user/activity`, {
+          headers: { Authorization: `Bearer ${token}` },
+          credentials: "include",
+        }).then(async (res) => {
+          if (res.ok) {
+            const data = await res.json();
+            if (data.success) return { type: "activity", data: data.data || [] };
+          } else {
+            console.error("Activity fetch failed:", res.status, await res.text());
+          }
+          return null;
+        }).catch((error) => {
+          console.error("Activity fetch error:", error);
+          return null;
+        }),
 
-  const settingsPromises = [
-  fetch(`${API_BASE_URL}/user/activity`, {
-  headers: { Authorization: `Bearer ${token}` },
-  credentials: "include",
-  }).then(async (res) => {
-  if (res.ok) {
-  const data = await res.json();
-  if (data.success) return { type: "activity", data: data.data || [] };
-  } else {
-  console.error("Activity fetch failed:", res.status, await res.text());
-  }
-  return null;
-  }).catch((error) => {
-  console.error("Activity fetch error:", error);
-  return null;
-  }),
+        fetch(`${API_BASE_URL}/user/privacy`, {
+          headers: { Authorization: `Bearer ${token}` },
+          credentials: "include",
+        }).then(async (res) => {
+          if (res.ok) {
+            const data = await res.json();
+            if (data.success) return { type: "privacy", data: data.data };
+          } else {
+            console.error("Privacy fetch failed:", res.status, await res.text());
+          }
+          return null;
+        }).catch((error) => {
+          console.error("Privacy fetch error:", error);
+          return null;
+        }),
 
-  fetch(`${API_BASE_URL}/user/privacy`, {
-  headers: { Authorization: `Bearer ${token}` },
-  credentials: "include",
-  }).then(async (res) => {
-  if (res.ok) {
-  const data = await res.json();
-  if (data.success) return { type: "privacy", data: data.data };
-  } else {
-  console.error("Privacy fetch failed:", res.status, await res.text());
-  }
-  return null;
-  }).catch((error) => {
-  console.error("Privacy fetch error:", error);
-  return null;
-  }),
+        fetch(`${API_BASE_URL}/user/notifications`, {
+          headers: { Authorization: `Bearer ${token}` },
+          credentials: "include",
+        }).then(async (res) => {
+          if (res.ok) {
+            const data = await res.json();
+            if (data.success) return { type: "notifications", data: data.data?.enabled ?? true };
+          } else {
+            console.error("Notifications fetch failed:", res.status, await res.text());
+          }
+          return null;
+        }).catch((error) => {
+          console.error("Notifications fetch error:", error);
+          return null;
+        }),
 
-  fetch(`${API_BASE_URL}/user/notifications`, {
-  headers: { Authorization: `Bearer ${token}` },
-  credentials: "include",
-  }).then(async (res) => {
-  if (res.ok) {
-  const data = await res.json();
-  if (data.success) return { type: "notifications", data: data.data?.enabled ?? true };
-  } else {
-  console.error("Notifications fetch failed:", res.status, await res.text());
-  }
-  return null;
-  }).catch((error) => {
-  console.error("Notifications fetch error:", error);
-  return null;
-  }),
-
-  fetch(`${API_BASE_URL}/user/apps`, {
-  headers: { Authorization: `Bearer ${token}` },
-  credentials: "include",
-  }).then(async (res) => {
-  if (res.ok) {
-  const data = await res.json();
-  if (data.success) return { type: "apps", data: data.data };
-  } else {
-  console.error("Apps fetch failed:", res.status, await res.text());
-  }
-  return null;
-  }).catch((error) => {
-  console.error("Apps fetch error:", error);
-  return null;
-  }),
-
-  fetch(`${API_BASE_URL}/user/language`, {
-  headers: { Authorization: `Bearer ${token}` },
-  credentials: "include",
-  }).then(async (res) => {
-  if (res.ok) {
-  const data = await res.json();
-  if (data.success) return { type: "language", data: data.data?.language || i18n.language };
-  } else {
-  console.error("Language fetch failed:", res.status, await res.text());
-  }
-  return null;
-  }).catch((error) => {
-  console.error("Language fetch error:", error);
-  return null;
-  }),
-  ];
+        fetch(`${API_BASE_URL}/user/language`, {
+          headers: { Authorization: `Bearer ${token}` },
+          credentials: "include",
+        }).then(async (res) => {
+          if (res.ok) {
+            const data = await res.json();
+            if (data.success) return { type: "language", data: data.data?.language || i18n.language };
+          } else {
+            console.error("Language fetch failed:", res.status, await res.text());
+          }
+          return null;
+        }).catch((error) => {
+          console.error("Language fetch error:", error);
+          return null;
+        }),
+      ];
 
       try {
         const results = await Promise.all(settingsPromises);
@@ -267,15 +230,11 @@ const Setting = () => {
               case "notifications":
                 setNotificationsEnabled(result.data);
                 break;
-              case "apps":
-                setConnectedApps(result.data);
-                break;
               case "language":
                 setSelectedLanguage(result.data);
                 break;
             }
           } else {
-            // Fallback to localStorage
             switch (result?.type) {
               case "activity":
                 const activityLogs = localStorage.getItem("activityLogs");
@@ -289,10 +248,6 @@ const Setting = () => {
                 const notifications = localStorage.getItem("notificationsEnabled");
                 if (notifications !== null) setNotificationsEnabled(JSON.parse(notifications));
                 break;
-              case "apps":
-                const apps = localStorage.getItem("connectedApps");
-                if (apps) setConnectedApps(JSON.parse(apps));
-                break;
               case "language":
                 setSelectedLanguage(i18n.language || "en");
                 break;
@@ -301,7 +256,6 @@ const Setting = () => {
         });
       } catch (error) {
         console.error("Error fetching settings:", error);
-        // Load all from localStorage
         const activityLogs = localStorage.getItem("activityLogs");
         if (activityLogs) setActivityLogs(JSON.parse(activityLogs));
 
@@ -310,9 +264,6 @@ const Setting = () => {
 
         const notifications = localStorage.getItem("notificationsEnabled");
         if (notifications !== null) setNotificationsEnabled(JSON.parse(notifications));
-
-        const apps = localStorage.getItem("connectedApps");
-        if (apps) setConnectedApps(JSON.parse(apps));
 
         setSelectedLanguage(i18n.language || "en");
       }
@@ -448,77 +399,89 @@ const Setting = () => {
     }
   };
 
-  // Connected apps handler
-  const handleConnectApp = async (app) => {
-    const updatedApps = { ...connectedApps, [app]: !connectedApps[app] };
-    setConnectedApps(updatedApps);
-    localStorage.setItem("connectedApps", JSON.stringify(updatedApps));
-
+  const handleConnectGoogle = async (token) => {
+    setIsConnectingGoogle(true);
     try {
-      const token = user?.token || getToken();
-      if (token) {
-        const response = await fetch(`${API_BASE_URL}/user/apps`, {
-          method: "PUT",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ apps: updatedApps }),
-          credentials: "include",
+      const authToken = user?.token || getToken();
+      if (!authToken) {
+        toast.error("Authentication required!");
+        return;
+      }
+
+      const response = await fetch(`${API_BASE_URL}/user/connect-google`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${authToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ token }),
+        credentials: "include",
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        setGoogleStatus({
+          isConnected: true,
+          signupMethod: googleStatus.signupMethod,
         });
-        if (!response.ok) {
-          console.error("Apps update failed:", response.status, await response.text());
-          toast.error(`Failed to ${updatedApps[app] ? "connect" : "disconnect"} ${app}!`);
-        } else {
-          addActivityLog(`${app} ${updatedApps[app] ? "connected" : "disconnected"}`);
-          toast.success(`${app} ${updatedApps[app] ? "connected" : "disconnected"} successfully!`);
-        }
+        updateUser(data.data);
+        addActivityLog("Google account connected");
+        toast.success("Google account connected successfully!");
+      } else {
+        toast.error(data.message || "Failed to connect Google account");
       }
     } catch (error) {
-      console.error("Error updating apps:", error);
-      toast.error(`Error ${updatedApps[app] ? "connecting" : "disconnecting"} ${app}!`);
+      console.error("Error connecting Google:", error);
+      toast.error("Error connecting Google account");
+    } finally {
+      setIsConnectingGoogle(false);
     }
   };
 
-  // New app handler
-  const handleConnectNewApp = async () => {
-    if (!newAppName.trim()) {
-      toast.error("Please enter an app name!");
-      return;
-    }
-
-    const updatedApps = { ...connectedApps, [newAppName.toLowerCase()]: true };
-    setConnectedApps(updatedApps);
-    localStorage.setItem("connectedApps", JSON.stringify(updatedApps));
-
+  const handleDisconnectGoogle = async () => {
+    setIsDisconnectingGoogle(true);
     try {
       const token = user?.token || getToken();
-      if (token) {
-        const response = await fetch(`${API_BASE_URL}/user/apps`, {
-          method: "PUT",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ apps: updatedApps }),
-          credentials: "include",
+      if (!token) {
+        toast.error("Authentication required!");
+        return;
+      }
+
+      if (googleStatus.signupMethod === 'google') {
+        toast.error("Cannot disconnect Google account when it's your signup method");
+        setIsDisconnectingGoogle(false);
+        return;
+      }
+
+      const response = await fetch(`${API_BASE_URL}/user/disconnect-google`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        setGoogleStatus({
+          isConnected: false,
+          signupMethod: googleStatus.signupMethod,
         });
-        if (!response.ok) {
-          console.error("New app connect failed:", response.status, await response.text());
-          toast.error(`Failed to connect ${newAppName}!`);
-        } else {
-          addActivityLog(`${newAppName} connected`);
-          toast.success(`${newAppName} connected successfully!`);
-          setNewAppName("");
-          setShowNewAppModal(false);
-        }
+        updateUser(data.data);
+        addActivityLog("Google account disconnected");
+        toast.success("Google account disconnected successfully!");
+      } else {
+        toast.error(data.message || "Failed to disconnect Google account");
       }
     } catch (error) {
-      console.error("Error connecting new app:", error);
-      toast.error(`Error connecting ${newAppName}!`);
+      console.error("Error disconnecting Google:", error);
+      toast.error("Error disconnecting Google account");
+    } finally {
+      setIsDisconnectingGoogle(false);
     }
-    setNewAppName("");
-    setShowNewAppModal(false);
   };
 
   // Password change handler
@@ -563,6 +526,13 @@ const Setting = () => {
       console.error("Error changing password:", error);
       toast.error("Error changing password. Please try again.");
     }
+  };
+
+  const handlePrivateAccountToggle = (newState) => {
+    if (user) {
+      updateUser({ ...user, isPrivate: newState });
+    }
+    addActivityLog(newState ? "Account set to private" : "Account set to public");
   };
 
   // Privacy settings handler
@@ -1021,70 +991,66 @@ const Setting = () => {
             </section>
           )}
 
-          {/* Apps and Website */}
+          {/* Apps and Websites */}
           {selected === 2 && (
-            <section className="space-y-4 sm:space-y-6 md:space-y-8 max-w-2xl">
+            <section className="space-y-6 max-w-2xl">
               <div>
-                <h3 className="text-white text-md sm:text-xl lg:text-xl font-semibold mb-3 sm:mb-4 lg:mb-5">
+                <h3 className="text-white text-md sm:text-xl lg:text-xl font-semibold mb-4 sm:mb-5">
                   {t("settings.connectedApps")}
                 </h3>
-                <div className="bg-[#232323] rounded-lg p-4 sm:p-5 md:p-6 flex flex-col gap-4 sm:gap-5 md:gap-6">
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 sm:w-10 sm:h-10 bg-red-500 rounded-lg flex items-center justify-center">
-                        <span className="text-white font-bold text-sm">G</span>
+                <div className="bg-[#232323] rounded-xl p-5 sm:p-6">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 sm:gap-6">
+                    <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 bg-white rounded-lg flex items-center justify-center shadow-lg">
+                        <svg className="w-6 h-6" viewBox="0 0 24 24">
+                          <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                          <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                          <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                          <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+                        </svg>
                       </div>
-                      <span className="text-white font-semibold text-sm sm:text-base md:text-md">
-                        {t("settings.google")}
-                      </span>
-                    </div>
-                    <button
-                      onClick={() => handleConnectApp("google")}
-                      className={`px-4 sm:px-6 py-2 sm:py-2.5 rounded-lg transition-all text-sm sm:text-base font-medium min-h-[44px] sm:min-h-[48px] shadow-md hover:shadow-lg transform hover:scale-105 active:scale-95 ${
-                      connectedApps.google
-                        ? "bg-red-500 text-white hover:bg-red-600"
-                        : "bg-green-500 text-white hover:bg-green-600"
-                    }`}
-                    >
-                      {connectedApps.google
-                        ? t("settings.disconnect")
-                        : t("settings.connect")}
-                    </button>
-                  </div>
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 sm:w-10 sm:h-10 bg-blue-600 rounded-lg flex items-center justify-center">
-                        <span className="text-white font-bold text-sm">f</span>
+                      <div>
+                        <p className="text-white font-semibold text-sm sm:text-base">Google</p>
+                        <p className="text-gray-400 text-xs sm:text-sm mt-1">
+                          {googleStatus.isConnected
+                            ? googleStatus.signupMethod === 'google'
+                              ? 'Connected with Signup'
+                              : 'Connected'
+                            : 'Not Connected'}
+                        </p>
                       </div>
-                      <span className="text-white font-semibold text-sm sm:text-base md:text-md">
-                        {t("settings.facebook")}
-                      </span>
                     </div>
-                    <button
-                      onClick={() => handleConnectApp("facebook")}
-                      className={`px-4 sm:px-6 py-2 sm:py-2.5 rounded-lg transition-all text-sm sm:text-base font-medium min-h-[44px] sm:min-h-[48px] shadow-md hover:shadow-lg transform hover:scale-105 active:scale-95 ${
-                      connectedApps.facebook
-                        ? "bg-red-500 text-white hover:bg-red-600"
-                        : "bg-green-500 text-white hover:bg-green-600"
-                    }`}
-                    >
-                      {connectedApps.facebook
-                        ? t("settings.disconnect")
-                        : t("settings.connect")}
-                    </button>
+                    <div>
+                      {googleStatus.isConnected ? (
+                        <button
+                          onClick={handleDisconnectGoogle}
+                          disabled={isDisconnectingGoogle || googleStatus.signupMethod === 'google'}
+                          className="px-5 sm:px-7 py-2.5 sm:py-3 bg-red-500 text-white font-semibold rounded-lg hover:bg-red-600 transition-all text-sm sm:text-base shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-105 active:scale-95"
+                        >
+                          {isDisconnectingGoogle ? 'Disconnecting...' : t("settings.disconnect")}
+                        </button>
+                      ) : (
+                        <GoogleLogin
+                          onSuccess={(credentialResponse) => {
+                            handleConnectGoogle(credentialResponse.credential);
+                          }}
+                          onError={() => {
+                            toast.error("Failed to connect with Google");
+                          }}
+                          render={({ onClick }) => (
+                            <button
+                              onClick={onClick}
+                              disabled={isConnectingGoogle}
+                              className="px-5 sm:px-7 py-2.5 sm:py-3 bg-blue-500 text-white font-semibold rounded-lg hover:bg-blue-600 transition-all text-sm sm:text-base shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-105 active:scale-95"
+                            >
+                              {isConnectingGoogle ? 'Connecting...' : t("settings.connect")}
+                            </button>
+                          )}
+                        />
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
-              <div className="pt-2 sm:pt-4">
-                <h3 className="text-white text-md sm:text-xl lg:text-xl font-semibold mb-3 sm:mb-4 lg:mb-5">
-                  {t("settings.addNewApp")}
-                </h3>
-                <button
-                  onClick={() => setShowNewAppModal(true)}
-                  className="bg-yellow-400 text-black font-semibold px-6 sm:px-8 py-3 sm:py-4 rounded-lg hover:bg-yellow-500 transition-all text-sm sm:text-base md:text-md min-h-[48px] sm:min-h-[52px] shadow-lg hover:shadow-xl transform hover:scale-105 active:scale-95"
-                >
-                  {t("settings.connectNewApp")}
-                </button>
               </div>
             </section>
           )}
@@ -1204,21 +1170,46 @@ const Setting = () => {
                       {t("settings.accountPrivacy")}
                     </h3>
                     <div className="bg-[#232323] rounded-lg p-3 sm:p-4 md:p-4">
-                      <label className="flex items-center gap-3 py-2">
-                        <input
-                          type="checkbox"
-                          checked={privacySettings.privateAccount}
-                          onChange={(e) =>
-                            handlePrivacyChange("privateAccount", e.target.checked)
-                          }
-                          className="accent-yellow-400 w-4 h-4 sm:w-5 sm:h-5"
+                      <div className="flex items-center justify-between py-3">
+                        <div>
+                          <span className="text-white text-sm sm:text-base md:text-md font-medium">
+                            {t("settings.privateAccount")}
+                          </span>
+                          <p className="text-gray-400 text-xs sm:text-sm mt-1">
+                            Hide your profile from non-followers
+                          </p>
+                        </div>
+                        <PrivateAccountToggle
+                          isPrivate={user?.isPrivate || false}
+                          onToggle={handlePrivateAccountToggle}
                         />
-                        <span className="text-white text-sm sm:text-base md:text-md">
-                          {t("settings.privateAccount")}
-                        </span>
-                      </label>
+                      </div>
                     </div>
                   </div>
+
+                  {user?.isPrivate && (
+                    <div>
+                      <h3 className="text-white text-md sm:text-xl lg:text-xl font-semibold mb-2 sm:mb-3 lg:mb-3">
+                        Follow Requests
+                      </h3>
+                      <div className="bg-[#232323] rounded-lg p-3 sm:p-4 md:p-4">
+                        <button
+                          onClick={() => navigate("/follow-requests")}
+                          className="w-full flex items-center justify-between py-3 px-2 hover:bg-[#2a2a2a] rounded transition-colors"
+                        >
+                          <div className="text-left">
+                            <span className="text-white text-sm sm:text-base md:text-md font-medium">
+                              Manage Follow Requests
+                            </span>
+                            <p className="text-gray-400 text-xs sm:text-sm mt-1">
+                              Accept or decline pending follow requests
+                            </p>
+                          </div>
+                          <span className="text-gray-400 text-lg">→</span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
                   <div>
                     <h3 className="text-white text-md sm:text-xl lg:text-xl font-semibold mb-2 sm:mb-3 lg:mb-3">
                       {t("settings.accountStatus")}
@@ -1242,45 +1233,7 @@ const Setting = () => {
                       </label>
                     </div>
                   </div>
-                  <div>
-                    <h3 className="text-white text-md sm:text-xl lg:text-xl font-semibold mb-2 sm:mb-3 lg:mb-3">
-                      {t("settings.twoFactorAuth")}
-                    </h3>
-                    <div className="bg-[#232323] rounded-lg p-3 sm:p-4 md:p-4 space-y-2 sm:space-y-3">
-                      <label className="flex items-center gap-3 py-2">
-                        <input
-                          type="checkbox"
-                          checked={privacySettings.twoFactorAuth.useAuthApp}
-                          onChange={(e) =>
-                            handlePrivacyChange("twoFactorAuth", {
-                              ...privacySettings.twoFactorAuth,
-                              useAuthApp: e.target.checked,
-                            })
-                          }
-                          className="accent-yellow-400 w-4 h-4 sm:w-5 sm:h-5"
-                        />
-                        <span className="text-white text-sm sm:text-base md:text-md">
-                          {t("settings.useAuthApp")}
-                        </span>
-                      </label>
-                      <label className="flex items-center gap-3 py-2">
-                        <input
-                          type="checkbox"
-                          checked={privacySettings.twoFactorAuth.useSms}
-                          onChange={(e) =>
-                            handlePrivacyChange("twoFactorAuth", {
-                              ...privacySettings.twoFactorAuth,
-                              useSms: e.target.checked,
-                            })
-                          }
-                          className="accent-yellow-400 w-4 h-4 sm:w-5 sm:h-5"
-                        />
-                        <span className="text-white text-sm sm:text-base md:text-md">
-                          {t("settings.useSms")}
-                        </span>
-                      </label>
-                    </div>
-                  </div>
+
                 </>
               )}
             </section>
@@ -1410,60 +1363,6 @@ const Setting = () => {
           )}
         </main>
       </div>
-
-      {/* New App Modal */}
-      {showNewAppModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-[#181818] rounded-2xl p-6 sm:p-8 max-w-md w-full mx-4">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-white text-xl font-semibold">
-                {t("settings.connectNewApp")}
-              </h3>
-              <button
-                onClick={() => setShowNewAppModal(false)}
-                className="text-gray-400 hover:text-white transition-colors"
-              >
-                <BsX className="w-6 h-6" />
-              </button>
-            </div>
-
-            <div className="space-y-4">
-              <div>
-                <label className="block text-white text-sm font-medium mb-2">
-                  {t("settings.appName")}
-                </label>
-                <input
-                  type="text"
-                  value={newAppName}
-                  onChange={(e) => setNewAppName(e.target.value)}
-                  placeholder={t("settings.enterAppName")}
-                  className="w-full bg-[#232323] text-white rounded-lg px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-yellow-400 transition-all hover:bg-[#2a2a2a] focus:bg-[#2a2a2a]"
-                  onKeyPress={(e) => {
-                    if (e.key === "Enter") {
-                      handleConnectNewApp();
-                    }
-                  }}
-                />
-              </div>
-
-              <div className="flex gap-3 pt-4">
-                <button
-                  onClick={() => setShowNewAppModal(false)}
-                  className="flex-1 bg-gray-600 text-white font-semibold py-3 rounded-lg hover:bg-gray-700 transition-all transform hover:scale-105 active:scale-95"
-                >
-                  {t("common.cancel")}
-                </button>
-                <button
-                  onClick={handleConnectNewApp}
-                  className="flex-1 bg-yellow-400 text-black font-semibold py-3 rounded-lg hover:bg-yellow-500 transition-all transform hover:scale-105 active:scale-95"
-                >
-                  {t("settings.connect")}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Image Upload Modal */}
       {showImageModal && (

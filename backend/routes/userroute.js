@@ -1,5 +1,5 @@
 import express from 'express';
-import { createuser, loginUser, googleAuth, googleAuthCallback, googleAuthToken, getUserProfile, updateUserProfile, followUser, unfollowUser, getFollowers, getAllUsers, getUserById, getUserFollowers, getUserFollowing, updateProfileImage, updateCoverImage, upload, getActivityLogs, getConnectedApps, updateConnectedApps, getLanguage, updateLanguage, getPrivacySettings, updatePrivacySettings, getNotifications, updateNotifications, updatePassword, deleteUser, blockUser, unblockUser, muteConversation, getBlockedUsers, isUserBlocked, isConversationMuted } from '../controllers/usercontrollers.js';
+import { createuser, loginUser, googleAuth, googleAuthCallback, googleAuthToken, connectGoogle, disconnectGoogle, getUserProfile, updateUserProfile, followUser, unfollowUser, getFollowers, getAllUsers, getUserById, getUserFollowers, getUserFollowing, updateProfileImage, updateCoverImage, upload, getActivityLogs, getConnectedApps, updateConnectedApps, getLanguage, updateLanguage, getPrivacySettings, updatePrivacySettings, getNotifications, updateNotifications, updatePassword, deleteUser, blockUser, unblockUser, muteConversation, getBlockedUsers, isUserBlocked, isConversationMuted, togglePrivateAccount, cancelFollowRequest, acceptFollowRequest, declineFollowRequest, getFollowRequests } from '../controllers/usercontrollers.js';
 import protect from '../middleware/auth.js';
 
 const router = express.Router();
@@ -12,6 +12,10 @@ router.post('/user/login', loginUser);
 router.post('/user/auth/google', googleAuthToken);
 router.get('/user/auth/google', googleAuth);
 router.get('/user/auth/google/callback', googleAuthCallback);
+
+// Google connection routes (protected)
+router.post('/user/connect-google', protect, connectGoogle);
+router.post('/user/disconnect-google', protect, disconnectGoogle);
 
 // Protected routes (Specific routes BEFORE dynamic :userId route!)
 router.get('/user/profile', protect, getUserProfile);
@@ -51,6 +55,13 @@ router.get('/user/is-blocked/:userId', protect, isUserBlocked);
 // Mute conversation routes
 router.post('/user/mute/:userId', protect, muteConversation);
 router.get('/user/is-muted/:userId', protect, isConversationMuted);
+
+// Private account routes
+router.post('/user/toggle-private', protect, togglePrivateAccount);
+router.post('/user/cancel-request/:userId', protect, cancelFollowRequest);
+router.post('/user/accept-request/:userId', protect, acceptFollowRequest);
+router.post('/user/decline-request/:userId', protect, declineFollowRequest);
+router.get('/user/follow-requests', protect, getFollowRequests);
 
 // Followers/Following lists for any user
 router.get('/user/:userId/followers', protect, getUserFollowers);

@@ -105,6 +105,18 @@ export const NotificationProvider = ({ children }) => {
   );
 
   /**
+   * Show follow request notification
+   * @param {string} userName - Name of the user who requested to follow
+   */
+  const showFollowRequestNotification = useCallback(
+    (userName) => {
+      const message = `📨 ${userName} requested to follow you`;
+      showNotification(message, "info");
+    },
+    [showNotification]
+  );
+
+  /**
    * Show like notification
    * @param {string} userName - Name of the user who liked
    */
@@ -173,6 +185,7 @@ export const NotificationProvider = ({ children }) => {
     showNotification,
     showMessageNotification,
     showFollowNotification,
+    showFollowRequestNotification,
     showLikeNotification,
     showCommentNotification,
     showError,

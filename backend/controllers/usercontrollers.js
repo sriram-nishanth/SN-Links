@@ -97,6 +97,8 @@ export const createuser = async (req, res) => {
       password: hashedPassword,
       bio: bio || "",
       profileImage: profileImage || "",
+      signupMethod: 'manual',
+      provider: 'local'
     });
 
     // Save user
@@ -277,7 +279,9 @@ export const googleAuthToken = async (req, res) => {
       googleId,
       provider: "google",
       profileImage: picture,
-      bio: "", // Default bio for Google users
+      bio: "",
+      signupMethod: 'google',
+      isGoogleConnected: true
     });
 
     await user.save();
@@ -296,6 +300,131 @@ export const googleAuthToken = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Error processing Google authentication",
+    });
+  }
+};
+
+export const connectGoogle = async (req, res) => {
+  try {
+    const { token } = req.body;
+    const userId = req.user._id;
+
+    if (!token) {
+      return res.status(400).json({
+        success: false,
+        message: "No Google token provided",
+      });
+    }
+
+    const { OAuth2Client } = await import("google-auth-library");
+    const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+
+    const ticket = await client.verifyIdToken({
+      idToken: token,
+      audience: process.env.GOOGLE_CLIENT_ID,
+    });
+
+    const payload = ticket.getPayload();
+    const { sub: googleId, picture } = payload;
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    user.googleId = googleId;
+    user.isGoogleConnected = true;
+    user.provider = 'google';
+    if (picture) {
+      user.profileImage = picture;
+    }
+    await user.save();
+
+    const updatedUser = await User.findById(userId).select("-password");
+
+    res.status(200).json({
+      success: true,
+      message: "Google account connected successfully",
+      data: updatedUser,
+    });
+  } catch (error) {
+    console.error("Connect Google error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error connecting Google account",
+    });
+  }
+};
+
+export const disconnectGoogle = async (req, res) => {
+  try {
+    const userId = req.user._id;
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    if (user.signupMethod === 'google') {
+      return res.status(400).json({
+        success: false,
+        message: "Cannot disconnect Google account if it's your signup method",
+      });
+    }
+
+    user.googleId = null;
+    user.isGoogleConnected = false;
+    await user.save();
+
+    const updatedUser = await User.findById(userId).select("-password");
+
+    res.status(200).json({
+      success: true,
+      message: "Google account disconnected successfully",
+      data: updatedUser,
+    });
+  } catch (error) {
+    console.error("Disconnect Google error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error disconnecting Google account",
+    });
+  }
+};
+
+export const getConnectedApps = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const user = await User.findById(userId).select("signupMethod isGoogleConnected");
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: {
+        google: {
+          isConnected: user.isGoogleConnected,
+          signupMethod: user.signupMethod,
+          status: user.signupMethod === 'google' ? 'connected_signup' : (user.isGoogleConnected ? 'connected' : 'not_connected'),
+        }
+      },
+    });
+  } catch (error) {
+    console.error("Get connected apps error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error fetching connected apps",
     });
   }
 };
@@ -412,21 +541,49 @@ export const followUser = async (req, res) => {
       });
     }
 
-    // Add to following list of current user
+    // Check if follow request already pending for private account
+    if (targetUser.isPrivate) {
+      const hasRequest = targetUser.followRequests.some(
+        req => req.fromUserId.toString() === userId.toString()
+      );
+      if (hasRequest) {
+        return res.status(400).json({
+          success: false,
+          message: "Follow request already sent",
+        });
+      }
+
+      // Add to follow requests instead of directly following
+      await User.findByIdAndUpdate(targetUserId, {
+        $push: { followRequests: { fromUserId: userId } },
+      });
+
+      // Emit socket event for new follow request
+      if (req.io) {
+        req.io
+          .to(targetUserId.toString())
+          .emit("followRequest", { fromUserId: userId });
+      }
+
+      return res.status(200).json({
+        success: true,
+        message: "Follow request sent",
+        data: { status: "requested" },
+      });
+    }
+
+    // Public account - add to following/followers
     await User.findByIdAndUpdate(userId, {
       $push: { following: targetUserId },
     });
 
-    // Add to followers list of target user
     await User.findByIdAndUpdate(targetUserId, {
       $push: { followers: userId },
     });
 
-    // Get updated counts
     const updatedCurrentUser = await User.findById(userId);
     const updatedTargetUser = await User.findById(targetUserId);
 
-    // Emit socket event to update chat lists in real-time
     if (req.io) {
       req.io
         .to(targetUserId.toString())
@@ -588,8 +745,8 @@ export const getAllUsers = async (req, res) => {
 export const getUserById = async (req, res) => {
   try {
     const userId = req.params.userId;
+    const currentUserId = req.user._id;
 
-    // Validate if userId is a valid MongoDB ObjectId
     if (!userId || !userId.match(/^[0-9a-fA-F]{24}$/)) {
       return res.status(400).json({
         success: false,
@@ -602,6 +759,28 @@ export const getUserById = async (req, res) => {
       return res.status(404).json({
         success: false,
         message: "User not found",
+      });
+    }
+
+    if (currentUserId.toString() === userId) {
+      return res.status(200).json({
+        success: true,
+        data: user,
+      });
+    }
+
+    if (user.isPrivate && !user.followers.includes(currentUserId)) {
+      return res.status(200).json({
+        success: true,
+        data: {
+          _id: user._id,
+          name: user.name,
+          profileImage: user.profileImage,
+          isPrivate: true,
+          isFollowing: user.followers.includes(currentUserId),
+          followers: [],
+          following: [],
+        },
       });
     }
 
@@ -899,31 +1078,7 @@ export const getActivityLogs = async (req, res) => {
   }
 };
 
-// Get user connected apps
-export const getConnectedApps = async (req, res) => {
-  try {
-    const userId = req.user._id;
 
-    const user = await User.findById(userId).select('connectedApps');
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: 'User not found',
-      });
-    }
-
-    res.status(200).json({
-      success: true,
-      data: user.connectedApps || {},
-    });
-  } catch (error) {
-    console.error('Get connected apps error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error fetching connected apps',
-    });
-  }
-};
 
 // Update user connected apps
 export const updateConnectedApps = async (req, res) => {
@@ -1503,6 +1658,190 @@ export const isConversationMuted = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Error checking mute status",
+    });
+  }
+};
+
+// Toggle private account
+export const togglePrivateAccount = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const { isPrivate } = req.body;
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    if (isPrivate !== undefined) {
+      user.isPrivate = Boolean(isPrivate);
+    } else {
+      user.isPrivate = !user.isPrivate;
+    }
+    
+    await user.save();
+
+    const updatedUser = await User.findById(userId).select("-password");
+
+    res.status(200).json({
+      success: true,
+      message: `Account is now ${updatedUser.isPrivate ? "private" : "public"}`,
+      data: updatedUser,
+    });
+  } catch (error) {
+    console.error("Toggle private account error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error toggling private account",
+    });
+  }
+};
+
+// Cancel follow request (before acceptance)
+export const cancelFollowRequest = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const targetUserId = req.params.userId;
+
+    const targetUser = await User.findByIdAndUpdate(
+      targetUserId,
+      { $pull: { followRequests: { fromUserId: userId } } },
+      { new: true }
+    );
+
+    res.status(200).json({
+      success: true,
+      message: "Follow request cancelled",
+      data: { requestCount: targetUser.followRequests.length },
+    });
+  } catch (error) {
+    console.error("Cancel follow request error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error cancelling follow request",
+    });
+  }
+};
+
+// Accept follow request
+export const acceptFollowRequest = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const fromUserId = req.params.userId;
+
+    // Remove from follow requests
+    const currentUser = await User.findByIdAndUpdate(
+      userId,
+      { $pull: { followRequests: { fromUserId } } },
+      { new: true }
+    );
+
+    // Add to followers
+    await User.findByIdAndUpdate(userId, {
+      $push: { followers: fromUserId },
+    });
+
+    // Add to following
+    await User.findByIdAndUpdate(fromUserId, {
+      $push: { following: userId },
+    });
+
+    const updatedCurrentUser = await User.findById(userId);
+    const updatedFromUser = await User.findById(fromUserId);
+
+    if (req.io) {
+      req.io
+        .to(userId.toString())
+        .emit("requestAccepted", { fromUserId });
+      req.io
+        .to(fromUserId.toString())
+        .emit("requestAccepted", { toUserId: userId });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Follow request accepted",
+      data: {
+        currentUser: {
+          followersCount: updatedCurrentUser.followers.length,
+          requestsCount: updatedCurrentUser.followRequests.length,
+        },
+        fromUser: {
+          followingCount: updatedFromUser.following.length,
+        },
+      },
+    });
+  } catch (error) {
+    console.error("Accept follow request error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error accepting follow request",
+    });
+  }
+};
+
+// Decline follow request
+export const declineFollowRequest = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const fromUserId = req.params.userId;
+
+    const currentUser = await User.findByIdAndUpdate(
+      userId,
+      { $pull: { followRequests: { fromUserId } } },
+      { new: true }
+    );
+
+    if (req.io) {
+      req.io
+        .to(userId.toString())
+        .emit("requestDeclined", { fromUserId });
+      req.io
+        .to(fromUserId.toString())
+        .emit("requestDeclined", { toUserId: userId });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Follow request declined",
+      data: { requestCount: currentUser.followRequests.length },
+    });
+  } catch (error) {
+    console.error("Decline follow request error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error declining follow request",
+    });
+  }
+};
+
+// Get follow requests
+export const getFollowRequests = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const user = await User.findById(userId).populate(
+      "followRequests.fromUserId",
+      "name email profileImage bio"
+    );
+
+    const requests = user.followRequests.map(req => ({
+      ...req.fromUserId.toObject(),
+      requestId: req._id,
+      requestedAt: req.createdAt,
+    }));
+
+    res.status(200).json({
+      success: true,
+      data: { requests },
+    });
+  } catch (error) {
+    console.error("Get follow requests error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error fetching follow requests",
     });
   }
 };
