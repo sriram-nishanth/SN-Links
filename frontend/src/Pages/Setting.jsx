@@ -14,8 +14,6 @@ import { GoogleLogin } from '@react-oauth/google';
 
 
 const Setting = () => {
-  const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3000/api";
-
   const [selected, setSelected] = useState(1);
   const [languageKey, setLanguageKey] = useState(Date.now());
   const [selectedLanguage, setSelectedLanguage] = useState("en");
@@ -93,18 +91,17 @@ const Setting = () => {
       try {
         const token = user?.token || getToken();
         if (!token) {
-          console.error("No user token for profile fetch");
           return;
         }
 
-        const response = await fetch(`${API_BASE_URL}/user/profile`, {
-          method: "GET",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-          credentials: "include",
-        });
+        const response = await fetch(`${import.meta.env.VITE_API_CALL}/user/profile`, {
+           method: "GET",
+           headers: {
+             Authorization: `Bearer ${token}`,
+             "Content-Type": "application/json",
+           },
+           credentials: "include",
+         });
 
         if (response.ok) {
           const data = await response.json();
@@ -122,11 +119,8 @@ const Setting = () => {
               signupMethod: data.data.signupMethod || 'manual',
             });
           }
-        } else {
-          console.error("Profile fetch failed:", response.status, await response.text());
         }
-      } catch (error) {
-        console.error("Error fetching user profile:", error);
+        } catch (error) {
       }
     };
 
@@ -135,8 +129,7 @@ const Setting = () => {
     const fetchSettings = async () => {
       const token = user?.token || getToken();
       if (!token) {
-        console.error("No token found for settings fetch");
-        setIsLoadingSettings(false);
+         setIsLoadingSettings(false);
         const activityLogs = localStorage.getItem("activityLogs");
         if (activityLogs) setActivityLogs(JSON.parse(activityLogs));
 
@@ -151,7 +144,7 @@ const Setting = () => {
       }
 
       const settingsPromises = [
-        fetch(`${API_BASE_URL}/user/activity`, {
+        fetch(`${import.meta.env.VITE_API_CALL}/user/activity`, {
           headers: { Authorization: `Bearer ${token}` },
           credentials: "include",
         }).then(async (res) => {
@@ -167,7 +160,7 @@ const Setting = () => {
           return null;
         }),
 
-        fetch(`${API_BASE_URL}/user/privacy`, {
+        fetch(`${import.meta.env.VITE_API_CALL}/user/privacy`, {
           headers: { Authorization: `Bearer ${token}` },
           credentials: "include",
         }).then(async (res) => {
@@ -183,7 +176,7 @@ const Setting = () => {
           return null;
         }),
 
-        fetch(`${API_BASE_URL}/user/notifications`, {
+        fetch(`${import.meta.env.VITE_API_CALL}/user/notifications`, {
           headers: { Authorization: `Bearer ${token}` },
           credentials: "include",
         }).then(async (res) => {
@@ -199,7 +192,7 @@ const Setting = () => {
           return null;
         }),
 
-        fetch(`${API_BASE_URL}/user/language`, {
+        fetch(`${import.meta.env.VITE_API_CALL}/user/language`, {
           headers: { Authorization: `Bearer ${token}` },
           credentials: "include",
         }).then(async (res) => {
@@ -282,7 +275,6 @@ const Setting = () => {
   // Listen for language changes and force re-render
   useEffect(() => {
     const handleLanguageChanged = (lng) => {
-      console.log("Language changed event received:", lng);
       setLanguageKey(Date.now());
     };
 
@@ -294,16 +286,12 @@ const Setting = () => {
   }, [i18n]);
 
   const handleLanguageChange = (language) => {
-    console.log("Changing language to:", language);
-
     // Change language immediately
     i18n.changeLanguage(language);
     localStorage.setItem("i18nextLng", language);
 
     // Force immediate re-render by updating key
     setLanguageKey(Date.now());
-
-    console.log("Language change initiated:", language);
   };
 
   const handleSaveLanguage = async () => {
@@ -311,7 +299,7 @@ const Setting = () => {
       try {
         const token = user?.token || getToken();
         if (token) {
-          const response = await fetch(`${API_BASE_URL}/user/language`, {
+          const response = await fetch(`${import.meta.env.VITE_API_CALL}/user/language`, {
             method: "PUT",
             headers: {
               Authorization: `Bearer ${token}`,
@@ -357,7 +345,7 @@ const Setting = () => {
   return;
   }
 
-      const response = await fetch(`${API_BASE_URL}/user/profile`, {
+      const response = await fetch(`${import.meta.env.VITE_API_CALL}/user/profile`, {
         method: "PUT",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -408,7 +396,7 @@ const Setting = () => {
         return;
       }
 
-      const response = await fetch(`${API_BASE_URL}/user/connect-google`, {
+      const response = await fetch(`${import.meta.env.VITE_API_CALL}/user/connect-google`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${authToken}`,
@@ -454,7 +442,7 @@ const Setting = () => {
         return;
       }
 
-      const response = await fetch(`${API_BASE_URL}/user/disconnect-google`, {
+      const response = await fetch(`${import.meta.env.VITE_API_CALL}/user/disconnect-google`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -696,7 +684,7 @@ const Setting = () => {
       formData.append(type === "profile" ? "profileImage" : "coverImage", file);
 
       const response = await axios.put(
-        `http://localhost:3000/api/user/profile/${
+        `${import.meta.env.VITE_API_CALL}/user/profile/${
           type === "profile" ? "image" : "cover"
         }`,
         formData,

@@ -11,7 +11,6 @@ let isInitializing = false;
 export const getSocket = async (token) => {
   // Return existing socket if already connected
   if (socket && socket.connected) {
-    console.log("[Socket] Returning existing connected socket");
     return socket;
   }
 
@@ -41,7 +40,6 @@ export const initializeSocket = async (token) => {
       isInitializing = true;
 
       if (!token) {
-        console.error("[Socket] No token provided");
         reject(new Error("Authentication token required"));
         return;
       }
@@ -50,8 +48,6 @@ export const initializeSocket = async (token) => {
       const serverUrl =
         import.meta.env.VITE_SOCKET_URL ||
         "http://localhost:3000";
-
-      console.log(`[Socket] Initializing connection to ${serverUrl}`);
 
       socket = io(serverUrl, {
         auth: {
@@ -71,31 +67,29 @@ export const initializeSocket = async (token) => {
 
       // Connection event
       socket.on("connect", () => {
-        console.log(`[Socket] Connected with ID: ${socket.id}`);
         isInitializing = false;
         resolve(socket);
       });
 
       // Connection error event
       socket.on("connect_error", (error) => {
-        console.error(`[Socket] Connection error: ${error.message}`);
         isInitializing = false;
         reject(error);
       });
 
       // Reconnection attempt
       socket.on("reconnect_attempt", (attempt) => {
-        console.warn(`[Socket] Reconnection attempt ${attempt}`);
+        // Reconnection attempt
       });
 
       // Reconnected event
       socket.on("reconnect", () => {
-        console.log("[Socket] Reconnected successfully");
+        // Reconnected successfully
       });
 
       // Disconnect event
       socket.on("disconnect", (reason) => {
-        console.log(`[Socket] Disconnected: ${reason}`);
+        // Socket disconnected
       });
 
       // Set timeout for connection attempt
@@ -109,7 +103,6 @@ export const initializeSocket = async (token) => {
       // Clear timeout on successful connection
       socket.once("connect", () => clearTimeout(connectionTimeout));
     } catch (error) {
-      console.error(`[Socket] Initialization error: ${error.message}`);
       isInitializing = false;
       reject(error);
     }
@@ -121,7 +114,6 @@ export const initializeSocket = async (token) => {
  */
 export const disconnectSocket = () => {
   if (socket) {
-    console.log("[Socket] Disconnecting");
     socket.disconnect();
     socket = null;
     isInitializing = false;

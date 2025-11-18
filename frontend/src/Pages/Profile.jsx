@@ -68,7 +68,7 @@ const Profile = () => {
       }
 
       // Fetch all posts using Axios
-      const response = await axios.get("http://localhost:3000/api/posts", {
+      const response = await axios.get(`${import.meta.env.VITE_API_CALL}/posts`, {
         headers: {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
@@ -135,7 +135,7 @@ const Profile = () => {
         setUserMedia([]);
       }
     } catch (error) {
-      console.error("Error fetching user posts:", error);
+
       setUserPosts([]);
       setUserMedia([]);
     }
@@ -146,27 +146,20 @@ const Profile = () => {
     const fetchUserProfile = async () => {
       try {
         const token = getToken();
-        console.log("Token exists:", !!token);
-        console.log("UserId from URL:", userId);
-        console.log("Logged-in user ID:", user?._id);
 
         if (!token) {
-          console.error("No authentication token found");
           setLoading(false);
           return;
         }
 
         if (!userId) {
-          console.error("No userId in URL params");
           setLoading(false);
           return;
         }
 
-        console.log("Fetching profile for userId:", userId);
-
         // Always use the dynamic userId from URL params
         const response = await axios.get(
-          `http://localhost:3000/api/user/${userId}`,
+          `${import.meta.env.VITE_API_CALL}/user/${userId}`,
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -175,11 +168,8 @@ const Profile = () => {
           }
         );
 
-        console.log("Profile API response:", response.data);
-
         if (response.data.success && response.data.data) {
           setUserProfile(response.data.data);
-          console.log("Profile set successfully:", response.data.data.name);
           
           const profileData = response.data.data;
           setIsPrivate(profileData?.isPrivate || false);
@@ -189,13 +179,10 @@ const Profile = () => {
               (typeof follower === "string" ? follower : follower?._id) === user?._id
           );
           setIsFollowing(isUserFollowing || false);
-        } else {
-          console.error("API returned success=false or no data");
+          } else {
           setUserProfile(null);
-        }
-      } catch (error) {
-        console.error("Error fetching user profile:", error);
-        console.error("Error details:", error.response?.data || error.message);
+          }
+          } catch (error) {
         setUserProfile(null);
       } finally {
         setLoading(false);
@@ -203,18 +190,15 @@ const Profile = () => {
     };
 
     // Only fetch if we have userId and user is set
-    if (userId && user?._id) {
-      console.log("Conditions met, fetching profile...");
-      setLoading(true);
-      fetchUserProfile();
-      fetchUserPosts();
-    } else if (!userId) {
-      console.error("Missing userId - cannot fetch profile");
-      setLoading(false);
-    } else if (!user?._id) {
-      console.log("Waiting for user context to load...");
-      // Keep loading true, wait for user to load
-    }
+     if (userId && user?._id) {
+       setLoading(true);
+       fetchUserProfile();
+       fetchUserPosts();
+     } else if (!userId) {
+       setLoading(false);
+     } else if (!user?._id) {
+       // Keep loading true, wait for user to load
+     }
   }, [userId, user?._id]);
 
   // Follow/Unfollow functions
@@ -224,7 +208,7 @@ const Profile = () => {
       if (!token) return;
 
       const response = await axios.post(
-        `http://localhost:3000/api/user/follow/${userId}`,
+        `${import.meta.env.VITE_API_CALL}/user/follow/${userId}`,
         {},
         {
           headers: {
@@ -248,7 +232,6 @@ const Profile = () => {
         }
       }
     } catch (error) {
-      console.error("Error following user:", error);
       if (
         error.response &&
         error.response.data &&
@@ -274,7 +257,7 @@ const Profile = () => {
       if (!token) return;
 
       const response = await axios.post(
-        `http://localhost:3000/api/user/cancel-request/${userId}`,
+        `${import.meta.env.VITE_API_CALL}/user/cancel-request/${userId}`,
         {},
         {
           headers: {
@@ -292,7 +275,6 @@ const Profile = () => {
         });
       }
     } catch (error) {
-      console.error("Error cancelling follow request:", error);
       setToast({
         message: "Failed to cancel follow request",
         type: "error",
@@ -306,7 +288,7 @@ const Profile = () => {
       if (!token) return;
 
       const response = await axios.delete(
-        `http://localhost:3000/api/user/unfollow/${userId}`,
+        `${import.meta.env.VITE_API_CALL}/user/unfollow/${userId}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -323,7 +305,6 @@ const Profile = () => {
         refreshUser();
       }
     } catch (error) {
-      console.error("Error unfollowing user:", error);
     }
   };
 
@@ -342,7 +323,7 @@ const Profile = () => {
       }
 
       const response = await axios.get(
-        `http://localhost:3000/api/user/${userId}/${type}`,
+        `${import.meta.env.VITE_API_CALL}/user/${userId}/${type}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -357,8 +338,7 @@ const Profile = () => {
         setModalError("Failed to load data");
       }
     } catch (error) {
-      console.error(`Error fetching ${type}:`, error);
-      setModalError("Failed to load data");
+       setModalError("Failed to load data");
     } finally {
       setModalLoading(false);
     }
@@ -378,7 +358,7 @@ const Profile = () => {
       if (!token) return;
 
       const response = await axios.post(
-        `http://localhost:3000/api/user/follow/${targetUserId}`,
+        `${import.meta.env.VITE_API_CALL}/user/follow/${targetUserId}`,
         {},
         {
           headers: {
@@ -399,7 +379,6 @@ const Profile = () => {
         refreshUser();
       }
     } catch (error) {
-      console.error("Error following user from modal:", error);
     }
   };
 
@@ -409,7 +388,7 @@ const Profile = () => {
       if (!token) return;
 
       const response = await axios.delete(
-        `http://localhost:3000/api/user/unfollow/${targetUserId}`,
+        `${import.meta.env.VITE_API_CALL}/user/unfollow/${targetUserId}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -429,7 +408,6 @@ const Profile = () => {
         refreshUser();
       }
     } catch (error) {
-      console.error("Error unfollowing user from modal:", error);
     }
   };
 
@@ -464,7 +442,7 @@ const Profile = () => {
       formData.append("profileImage", fileInput.files[0]);
 
       const response = await axios.put(
-        "http://localhost:3000/api/user/profile/image",
+        `${import.meta.env.VITE_API_CALL}/user/profile/image`,
         formData,
         {
           headers: {
@@ -488,8 +466,7 @@ const Profile = () => {
         setToast({ message: "Failed to update profile image", type: "error" });
       }
     } catch (error) {
-      console.error("Error updating profile image:", error);
-      setToast({ message: "Failed to update profile image", type: "error" });
+       setToast({ message: "Failed to update profile image", type: "error" });
     }
   };
 

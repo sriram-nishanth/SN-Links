@@ -16,7 +16,7 @@ const FollowButton = ({
   const [requestStatus, setRequestStatus] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3000/api";
+  const API_BASE_URL = `${import.meta.env.VITE_API_CALL}`;
 
   // Get token from cookie or user object
   const getToken = () => {
@@ -37,13 +37,11 @@ const FollowButton = ({
     e.stopPropagation();
 
     if (user?._id === targetUserId) {
-      console.warn("Cannot follow yourself");
       return;
     }
 
     const token = getToken();
     if (!token) {
-      console.error("No authentication token found");
       return;
     }
 
@@ -130,7 +128,6 @@ const FollowButton = ({
         }
       }
     } catch (error) {
-      console.error("Error toggling follow state:", error);
     } finally {
       setIsLoading(false);
     }

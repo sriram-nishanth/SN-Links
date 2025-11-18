@@ -22,8 +22,6 @@ const ExploreUsers = () => {
   const [showFilterDropdown, setShowFilterDropdown] = useState(false);
   const filterRef = useRef(null);
 
-  const API_BASE_URL = "http://localhost:3000/api";
-
   // Get token
   const getToken = () => {
     const token = document.cookie
@@ -44,7 +42,7 @@ const ExploreUsers = () => {
           return;
         }
 
-        const response = await axios.get(`${API_BASE_URL}/user/all`, {
+        const response = await axios.get(`${import.meta.env.VITE_API_CALL}/user/all`, {
           headers: {
             Authorization: `Bearer ${token}`,
             "Content-Type": "application/json",
@@ -59,26 +57,25 @@ const ExploreUsers = () => {
           setUsers(allUsers);
           setFilteredUsers(allUsers);
         }
-      } catch (error) {
-        console.error("Error fetching users:", error);
+        } catch (error) {
         setToast({ message: "Error loading users", type: "error" });
-      } finally {
+        } finally {
         setLoading(false);
-      }
-    };
+        }
+        };
 
-    fetchUsers();
-  }, [user]);
+        fetchUsers();
+        }, [user]);
 
-  // Fetch current user's following and followers lists
-  useEffect(() => {
-    const fetchRelationships = async () => {
-      try {
+        // Fetch current user's following and followers lists
+        useEffect(() => {
+        const fetchRelationships = async () => {
+        try {
         const token = getToken();
         if (!token) return;
 
         // Fetch following
-        const profileResponse = await axios.get(`${API_BASE_URL}/user/profile`, {
+        const profileResponse = await axios.get(`${import.meta.env.VITE_API_CALL}/user/profile`, {
           headers: {
             Authorization: `Bearer ${token}`,
             "Content-Type": "application/json",
@@ -93,7 +90,7 @@ const ExploreUsers = () => {
         }
 
         // Fetch followers
-        const followersResponse = await axios.get(`${API_BASE_URL}/user/followers`, {
+        const followersResponse = await axios.get(`${import.meta.env.VITE_API_CALL}/user/followers`, {
           headers: {
             Authorization: `Bearer ${token}`,
             "Content-Type": "application/json",
@@ -107,7 +104,6 @@ const ExploreUsers = () => {
           setFollowers(followerIds);
         }
       } catch (error) {
-        console.error("Error fetching relationships:", error);
       }
     };
 

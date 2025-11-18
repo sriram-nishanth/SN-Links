@@ -15,7 +15,7 @@ const EnhancedFriends = ({ searchQuery }) => {
   const [error, setError] = useState(null);
   const [toast, setToast] = useState({ message: "", type: "" });
 
-  const API_BASE_URL = "http://localhost:3000/api";
+  const API_BASE_URL = `${import.meta.env.VITE_API_CALL}`;
 
   // Get token
   const getToken = () => {
@@ -51,7 +51,6 @@ const EnhancedFriends = ({ searchQuery }) => {
           setUsers(filteredUsers);
         }
       } catch (error) {
-        console.error("Error fetching users:", error);
         setError("Failed to fetch users");
       } finally {
         setLoading(false);
@@ -82,7 +81,6 @@ const EnhancedFriends = ({ searchQuery }) => {
           setFollowedUsers(followingIds);
         }
       } catch (error) {
-        console.error("Error fetching following list:", error);
       }
     };
 

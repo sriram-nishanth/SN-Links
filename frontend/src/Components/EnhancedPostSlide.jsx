@@ -43,7 +43,7 @@ const EnhancedPostSlide = ({ searchQuery }) => {
   const [showDropdown, setShowDropdown] = useState(null);
   const [showAllPosts, setShowAllPosts] = useState(false);
 
-  const API_BASE_URL = "http://localhost:3000/api";
+  const API_BASE_URL = `${import.meta.env.VITE_API_CALL}`;
 
   // Get token
   const getToken = () => {
@@ -75,7 +75,6 @@ const EnhancedPostSlide = ({ searchQuery }) => {
           setFollowedUsers(followingIds);
         }
       } catch (error) {
-        console.error("Error fetching user profile:", error);
       }
     };
 
@@ -128,7 +127,6 @@ const EnhancedPostSlide = ({ searchQuery }) => {
           setLikedPosts(likedPostIds);
         }
       } catch (error) {
-        console.error("Error fetching posts:", error);
         setToast({ message: "Error loading posts", type: "error" });
       } finally {
         setLoading(false);
@@ -260,7 +258,6 @@ const EnhancedPostSlide = ({ searchQuery }) => {
         setPosts((prev) => [newPostData, ...prev]);
       }
     } catch (error) {
-      console.error("Error creating post:", error);
       setToast({ message: "Error creating post", type: "error" });
     }
   };
@@ -302,7 +299,6 @@ const EnhancedPostSlide = ({ searchQuery }) => {
         );
       }
     } catch (error) {
-      console.error("Error liking post:", error);
     }
   };
 
@@ -336,7 +332,6 @@ const EnhancedPostSlide = ({ searchQuery }) => {
         setToast({ message: "Comment added!", type: "success" });
       }
     } catch (error) {
-      console.error("Error adding comment:", error);
       setToast({ message: "Error adding comment", type: "error" });
     }
   };
@@ -371,7 +366,6 @@ const EnhancedPostSlide = ({ searchQuery }) => {
         setToast({ message: "Comment updated!", type: "success" });
       }
     } catch (error) {
-      console.error("Error editing comment:", error);
       setToast({ message: "Error editing comment", type: "error" });
     }
   };
@@ -405,7 +399,6 @@ const EnhancedPostSlide = ({ searchQuery }) => {
         setToast({ message: "Comment deleted!", type: "success" });
       }
     } catch (error) {
-      console.error("Error deleting comment:", error);
       setToast({ message: "Error deleting comment", type: "error" });
     }
   };
@@ -426,7 +419,6 @@ const EnhancedPostSlide = ({ searchQuery }) => {
         setToast({ message: "Post deleted successfully", type: "success" });
       }
     } catch (error) {
-      console.error("Error deleting post:", error);
       setToast({ message: "Error deleting post", type: "error" });
     }
   };
@@ -459,7 +451,6 @@ const EnhancedPostSlide = ({ searchQuery }) => {
         setToast({ message: "Post updated successfully", type: "success" });
       }
     } catch (error) {
-      console.error("Error updating post:", error);
       setToast({ message: "Error updating post", type: "error" });
     }
   };

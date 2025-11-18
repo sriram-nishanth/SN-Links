@@ -44,7 +44,7 @@ const SignupPage = () => {
       setError("");
 
       const response = await fetch(
-        "http://localhost:3000/api/user/createuser",
+        `${import.meta.env.VITE_API_CALL}/user/createuser`,
         {
           method: "POST",
           headers: {

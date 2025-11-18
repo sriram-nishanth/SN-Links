@@ -31,7 +31,6 @@ export const NotificationProvider = ({ children }) => {
     const now = Date.now();
 
     if (lastShownTime && now - lastShownTime < DUPLICATE_DEBOUNCE_MS) {
-      console.log("[Notification] Duplicate prevented:", notificationKey);
       return;
     }
 
@@ -49,8 +48,6 @@ export const NotificationProvider = ({ children }) => {
       theme: "dark",
       ...options,
     });
-
-    console.log("[Notification] Shown:", notificationKey);
   }, []);
 
   /**

@@ -11,8 +11,6 @@ const FollowRequests = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const navigate = useNavigate();
 
-  const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3000/api";
-
   const getToken = () => {
     const token = document.cookie
       .split("; ")
@@ -34,7 +32,7 @@ const FollowRequests = () => {
       }
 
       const response = await axios.get(
-        `${API_BASE_URL}/user/follow-requests`,
+        `${import.meta.env.VITE_API_CALL}/user/follow-requests`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -47,7 +45,6 @@ const FollowRequests = () => {
         setRequests(response.data.data.requests || []);
       }
     } catch (error) {
-      console.error("Error fetching follow requests:", error);
       toast.error("Failed to load follow requests");
     } finally {
       setLoading(false);

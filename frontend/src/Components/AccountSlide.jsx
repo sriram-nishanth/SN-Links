@@ -25,7 +25,7 @@ const AccountSlide = () => {
   const coverFileInputRef = useRef(null);
   const pollingIntervalRef = useRef(null);
 
-  const API_BASE_URL = "http://localhost:3000/api";
+  const API_BASE_URL = `${import.meta.env.VITE_API_CALL}`;
 
   // Get token from cookie
   const getToken = () => {
@@ -94,7 +94,6 @@ const AccountSlide = () => {
         setUserMedia(mediaItems);
       }
     } catch (err) {
-      console.error("Error fetching user posts:", err);
     }
   };
 
@@ -190,7 +189,6 @@ const AccountSlide = () => {
         setToast({ message: 'Cover image updated successfully!', type: 'success' });
       }
     } catch (error) {
-      console.error('Cover upload error:', error);
       if (error.response?.data?.message) {
         setToast({ message: error.response.data.message, type: 'error' });
       } else {

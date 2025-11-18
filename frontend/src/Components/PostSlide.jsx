@@ -104,7 +104,7 @@ const PostSlide = ({ searchQuery }) => {
 
         // Fetch user profile first
         const userResponse = await fetch(
-          "http://localhost:3000/api/user/profile",
+          `${import.meta.env.VITE_API_CALL}/user/profile`,
           {
             method: "GET",
             headers: {
@@ -123,7 +123,7 @@ const PostSlide = ({ searchQuery }) => {
 
             // Fetch friends
             const friendsResponse = await fetch(
-              `http://localhost:3000/api/user/${userData.data._id}/following`,
+              `${import.meta.env.VITE_API_CALL}/user/${userData.data._id}/following`,
               {
                 method: "GET",
                 headers: {
@@ -143,7 +143,7 @@ const PostSlide = ({ searchQuery }) => {
         }
 
         // Fetch posts
-        const response = await fetch("http://localhost:3000/api/posts", {
+        const response = await fetch(`${import.meta.env.VITE_API_CALL}/posts`, {
           method: "GET",
           headers: {
             Authorization: `Bearer ${token}`,
@@ -172,7 +172,7 @@ const PostSlide = ({ searchQuery }) => {
                 ? post.likes.includes(currentUserData._id)
                 : false,
               comments: post.comments.map((comment) => {
-                console.log("Comment data:", comment);
+
                 return {
                   id: comment._id,
                   user: comment.user.name,
@@ -197,7 +197,6 @@ const PostSlide = ({ searchQuery }) => {
           }
         }
       } catch (error) {
-        console.error("Error fetching data:", error);
         // Fallback to dummy posts if backend fails
         setPosts(initialPosts);
       } finally {
@@ -251,7 +250,7 @@ const PostSlide = ({ searchQuery }) => {
       );
 
       const response = await fetch(
-        `http://localhost:3000/api/posts/${postId}/like`,
+        `${import.meta.env.VITE_API_CALL}/posts/${postId}/like`,
         {
           method: "POST",
           headers: {
@@ -305,7 +304,6 @@ const PostSlide = ({ searchQuery }) => {
         setToast({ message: "Failed to like post", type: "error" });
       }
     } catch (error) {
-      console.error("Error liking post:", error);
       // Revert optimistic update
       const wasLiked = likedPosts.has(postId);
       const currentPost = posts.find((p) => p.id === postId);
@@ -359,7 +357,7 @@ const PostSlide = ({ searchQuery }) => {
         formData.append("isVideo", isVideo);
       }
 
-      const response = await fetch("http://localhost:3000/api/posts", {
+      const response = await fetch(`${import.meta.env.VITE_API_CALL}/posts`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -404,7 +402,6 @@ const PostSlide = ({ searchQuery }) => {
         setToast({ message: "Failed to create post", type: "error" });
       }
     } catch (error) {
-      console.error("Error creating post:", error);
       setToast({ message: "Error creating post", type: "error" });
     }
 
@@ -425,7 +422,7 @@ const PostSlide = ({ searchQuery }) => {
       }
 
       const response = await fetch(
-        `http://localhost:3000/api/posts/${postId}/comments`,
+        `${import.meta.env.VITE_API_CALL}/posts/${postId}/comments`,
         {
           method: "POST",
           headers: {
@@ -472,7 +469,6 @@ const PostSlide = ({ searchQuery }) => {
         setToast({ message: "Failed to add comment", type: "error" });
       }
     } catch (error) {
-      console.error("Error adding comment:", error);
       setToast({ message: "Error adding comment", type: "error" });
     }
 
@@ -486,7 +482,7 @@ const PostSlide = ({ searchQuery }) => {
   const handleShare = (friend, postId) => {
     const postToShare = posts.find((post) => post.id === postId);
     if (!postToShare) {
-      console.error("Post not found for sharing");
+
       return;
     }
 
@@ -547,7 +543,6 @@ const PostSlide = ({ searchQuery }) => {
 
       setSharePostId(null);
     } catch (error) {
-      console.error("Error sharing post:", error);
       // alert('Failed to share post. Please try again.');
     }
   };
@@ -569,7 +564,7 @@ const PostSlide = ({ searchQuery }) => {
       }
 
       const response = await fetch(
-        `http://localhost:3000/api/posts/${postId}`,
+        `${import.meta.env.VITE_API_CALL}/posts/${postId}`,
         {
           method: "PUT",
           headers: {
@@ -596,7 +591,6 @@ const PostSlide = ({ searchQuery }) => {
         setToast({ message: "Failed to edit post", type: "error" });
       }
     } catch (error) {
-      console.error("Error editing post:", error);
       setToast({ message: "Error editing post", type: "error" });
     }
   };
@@ -616,7 +610,7 @@ const PostSlide = ({ searchQuery }) => {
       }
 
       const response = await fetch(
-        `http://localhost:3000/api/posts/${deletePostId}`,
+        `${import.meta.env.VITE_API_CALL}/posts/${deletePostId}`,
         {
           method: "DELETE",
           headers: {
@@ -639,7 +633,6 @@ const PostSlide = ({ searchQuery }) => {
         setToast({ message: "Failed to delete post", type: "error" });
       }
     } catch (error) {
-      console.error("Error deleting post:", error);
       setToast({ message: "Error deleting post", type: "error" });
     }
   };
@@ -653,7 +646,7 @@ const PostSlide = ({ searchQuery }) => {
       }
 
       const response = await fetch(
-        `http://localhost:3000/api/posts/${postId}/comments/${commentId}`,
+        `${import.meta.env.VITE_API_CALL}/posts/${postId}/comments/${commentId}`,
         {
           method: "DELETE",
           headers: {
@@ -684,7 +677,6 @@ const PostSlide = ({ searchQuery }) => {
         setToast({ message: "Failed to delete comment", type: "error" });
       }
     } catch (error) {
-      console.error("Error deleting comment:", error);
       setToast({ message: "Error deleting comment", type: "error" });
     }
   };
@@ -703,7 +695,7 @@ const PostSlide = ({ searchQuery }) => {
       }
 
       const response = await fetch(
-        `http://localhost:3000/api/posts/${postId}/comments/${commentId}`,
+        `${import.meta.env.VITE_API_CALL}/posts/${postId}/comments/${commentId}`,
         {
           method: "PUT",
           headers: {
@@ -743,7 +735,6 @@ const PostSlide = ({ searchQuery }) => {
         setToast({ message: "Failed to update comment", type: "error" });
       }
     } catch (error) {
-      console.error("Error updating comment:", error);
       setToast({ message: "Error updating comment", type: "error" });
     }
   };

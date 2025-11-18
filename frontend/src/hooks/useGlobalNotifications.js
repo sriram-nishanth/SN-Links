@@ -13,12 +13,7 @@ const useGlobalNotifications = () => {
   const { showNotification } = useNotification();
 
   useEffect(() => {
-    if (isConnected) {
-      console.log(
-        "[Global Notifications] Socket connected and notification system active"
-      );
-    }
-  }, [isConnected, showNotification]);
+   }, [isConnected, showNotification]);
 
   // This hook doesn't need to do anything - it just ensures
   // the providers are mounted. The actual notification logic

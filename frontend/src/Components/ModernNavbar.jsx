@@ -49,7 +49,6 @@ const ModernNavbar = ({ searchQuery, setSearchQuery }) => {
       // Navigate to login page with replace to prevent back navigation
       navigate('/login', { replace: true });
     } catch (error) {
-      console.error('Logout failed:', error);
       // Force navigation even if logout fails
       navigate('/login', { replace: true });
     }

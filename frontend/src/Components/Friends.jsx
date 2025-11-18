@@ -24,7 +24,7 @@ const Friends = ({ searchQuery }) => {
           return;
         }
 
-        const response = await fetch("http://localhost:3000/api/user/all", {
+        const response = await fetch(`${import.meta.env.VITE_API_CALL}/user/all`, {
           method: "GET",
           headers: {
             Authorization: `Bearer ${token}`,
@@ -41,7 +41,6 @@ const Friends = ({ searchQuery }) => {
           setError("Failed to fetch users");
         }
       } catch (error) {
-        console.error("Error fetching users:", error);
         setError("Error fetching users");
       } finally {
         setLoading(false);
@@ -58,7 +57,7 @@ const Friends = ({ searchQuery }) => {
         const token = user?.token;
         if (!token) return;
 
-        const response = await fetch("http://localhost:3000/api/user/profile", {
+        const response = await fetch(`${import.meta.env.VITE_API_CALL}/user/profile`, {
           method: "GET",
           headers: {
             Authorization: `Bearer ${token}`,
@@ -76,7 +75,6 @@ const Friends = ({ searchQuery }) => {
           }
         }
       } catch (error) {
-        console.error("Error fetching user profile:", error);
       }
     };
 
@@ -104,7 +102,7 @@ const Friends = ({ searchQuery }) => {
       const method = isFollowing ? "DELETE" : "POST";
 
       const response = await fetch(
-        `http://localhost:3000/api/user/${endpoint}/${id}`,
+        `${import.meta.env.VITE_API_CALL}/user/${endpoint}/${id}`,
         {
           method: method,
           headers: {
@@ -171,7 +169,6 @@ const Friends = ({ searchQuery }) => {
         });
       }
     } catch (error) {
-      console.error("Error following/unfollowing user:", error);
       setToast({
         message: `Error ${followedFriends.has(id) ? "unfollowing" : "following"} user`,
         type: "error",

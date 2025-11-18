@@ -15,8 +15,6 @@ export const UserProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  const API_BASE_URL = "http://localhost:3000/api";
-
   // Get token from cookie
   const getToken = () => {
     const token = document.cookie
@@ -94,7 +92,6 @@ export const UserProvider = ({ children }) => {
         throw new Error(response.data.message || "Login failed");
       }
     } catch (err) {
-      console.error("Login error:", err);
       throw err;
     } finally {
       setLoading(false);
@@ -126,9 +123,8 @@ export const UserProvider = ({ children }) => {
             },
           );
         } catch (err) {
-          // Continue with client-side logout even if backend call fails
-          console.error("Backend logout failed:", err);
-        }
+           // Continue with client-side logout even if backend call fails
+         }
       }
 
       // Clear user state
@@ -170,7 +166,6 @@ export const UserProvider = ({ children }) => {
       // Force reload to clear any in-memory state (optional)
       // window.location.href = '/';
     } catch (err) {
-      console.error("Logout error:", err);
       // Even if there's an error, clear the local state
       setUser(null);
       localStorage.clear();

@@ -6,7 +6,7 @@ import Avatar from "./Avatar";
 const FollowRequestCard = ({ request, onAccept, onDecline }) => {
   const [isLoading, setIsLoading] = useState(false);
 
-  const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3000/api";
+  const API_BASE_URL = `${import.meta.env.VITE_API_CALL}`;
 
   const getToken = () => {
     const token = document.cookie
@@ -41,7 +41,6 @@ const FollowRequestCard = ({ request, onAccept, onDecline }) => {
         if (onAccept) onAccept(request._id);
       }
     } catch (error) {
-      console.error("Error accepting follow request:", error);
       toast.error("Failed to accept follow request");
     } finally {
       setIsLoading(false);
@@ -73,7 +72,6 @@ const FollowRequestCard = ({ request, onAccept, onDecline }) => {
         if (onDecline) onDecline(request._id);
       }
     } catch (error) {
-      console.error("Error declining follow request:", error);
       toast.error("Failed to decline follow request");
     } finally {
       setIsLoading(false);

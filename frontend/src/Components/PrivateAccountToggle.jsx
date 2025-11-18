@@ -8,8 +8,6 @@ const PrivateAccountToggle = ({ isPrivate: initialIsPrivate = false, onToggle })
   const [isLoading, setIsLoading] = useState(false);
   const { updateUser, user } = useUser();
 
-  const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3000/api";
-
   const getToken = () => {
     const token = document.cookie
       .split("; ")
@@ -65,7 +63,6 @@ const PrivateAccountToggle = ({ isPrivate: initialIsPrivate = false, onToggle })
         toast.error("Failed to update privacy settings");
       }
     } catch (error) {
-      console.error("Error toggling private account:", error);
       setIsPrivate(!newState);
       toast.error("Failed to update privacy settings");
     } finally {

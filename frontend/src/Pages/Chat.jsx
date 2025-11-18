@@ -68,8 +68,6 @@ const Chat = () => {
   const [isMuted, setIsMuted] = useState(false);
   const [isBlocked, setIsBlocked] = useState(false);
 
-  const API_BASE_URL = "http://localhost:3000/api";
-
   // Get token from cookie
   const getToken = () => {
     const token = document.cookie
@@ -95,20 +93,20 @@ const Chat = () => {
     }
 
     try {
-      setLoading(true);
-      const conversationsResponse = await axios.get(
-        `${API_BASE_URL}/messages/conversations`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
+       setLoading(true);
+       const conversationsResponse = await axios.get(
+         `${import.meta.env.VITE_API_CALL}/messages/conversations`,
+         {
+           headers: { Authorization: `Bearer ${token}` },
+         }
+       );
 
-      const followingResponse = await axios.get(
-        `${API_BASE_URL}/user/${user._id}/following`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
+       const followingResponse = await axios.get(
+         `${import.meta.env.VITE_API_CALL}/user/${user._id}/following`,
+         {
+           headers: { Authorization: `Bearer ${token}` },
+         }
+       );
 
       const conversations = conversationsResponse.data.data || [];
       const following = followingResponse.data.data || [];
@@ -167,7 +165,7 @@ const Chat = () => {
 
       try {
         const response = await axios.get(
-          `${API_BASE_URL}/messages/${selectedChatId}`,
+          `${import.meta.env.VITE_API_CALL}/messages/${selectedChatId}`,
           {
             headers: { Authorization: `Bearer ${token}` },
           }
@@ -210,10 +208,10 @@ const Chat = () => {
 
       try {
         const [muteRes, blockRes] = await Promise.all([
-          axios.get(`${API_BASE_URL}/user/is-muted/${selectedChatId}`, {
+          axios.get(`${import.meta.env.VITE_API_CALL}/user/is-muted/${selectedChatId}`, {
             headers: { Authorization: `Bearer ${token}` },
           }),
-          axios.get(`${API_BASE_URL}/user/is-blocked/${selectedChatId}`, {
+          axios.get(`${import.meta.env.VITE_API_CALL}/user/is-blocked/${selectedChatId}`, {
             headers: { Authorization: `Bearer ${token}` },
           }),
         ]);
@@ -221,7 +219,7 @@ const Chat = () => {
         setIsMuted(muteRes.data?.data?.isMuted || false);
         setIsBlocked(blockRes.data?.data?.isBlocked || false);
       } catch (error) {
-        console.error("Error checking status:", error);
+
       }
     };
 
@@ -241,7 +239,7 @@ const Chat = () => {
         senderId: selectedChatId,
         receiverId: user._id,
       });
-      console.log("[Chat] Emitted message_seen event");
+
     }
   }, [selectedChatId, socket, user, joinRoom]);
 
@@ -249,16 +247,12 @@ const Chat = () => {
   useEffect(() => {
     if (!socket || !user) return;
 
-    console.log("[Chat] Setting up socket event listeners");
 
     // Handle receiving messages from other users
     const handleReceiveMessage = (message) => {
-      console.log("[Chat] Received message event:", message);
-
       // Determine conversation ID
       const conversationId = message.senderId || message.sender?._id;
       if (!conversationId) {
-        console.warn("[Chat] Could not determine conversation ID from message");
         return;
       }
 
@@ -277,8 +271,6 @@ const Chat = () => {
         seen: message.seen || false,
       };
 
-      console.log("[Chat] Processing received message:", newMessage);
-
       setMessages((prev) => {
         const currentMessages = prev[conversationId] || [];
 
@@ -288,11 +280,8 @@ const Chat = () => {
         );
 
         if (isDuplicate) {
-          console.log("[Chat] Duplicate prevented:", newMessage.id);
           return prev;
         }
-
-        console.log("[Chat] Adding received message:", newMessage.id);
         return {
           ...prev,
           [conversationId]: [...currentMessages, newMessage],
@@ -326,7 +315,6 @@ const Chat = () => {
       });
 
       // Show toast for received message
-      console.log("[Chat] Showing toast notification for received message");
       toast.success("New message received!", {
         duration: 3000,
         position: "bottom-right",
@@ -337,7 +325,6 @@ const Chat = () => {
 
     // Handle message sent confirmation (server echo to replace optimistic message)
     const handleMessageSent = (message) => {
-      console.log("[Chat] Message confirmed sent:", message._id);
       const conversationId = message.receiverId;
 
       setMessages((prev) => {
@@ -366,10 +353,6 @@ const Chat = () => {
             media: message.media,
             seen: message.seen || false,
           };
-          console.log(
-            "[Chat] Replaced optimistic message with confirmed:",
-            message._id
-          );
           return {
             ...prev,
             [conversationId]: updatedMessages,
@@ -377,10 +360,6 @@ const Chat = () => {
         }
 
         // If no optimistic message found, just add it (shouldn't happen)
-        console.log(
-          "[Chat] No optimistic message to replace, adding:",
-          message._id
-        );
         return {
           ...prev,
           [conversationId]: [
@@ -406,9 +385,6 @@ const Chat = () => {
     };
 
     const handleTyping = (data) => {
-      console.log(
-        `[Chat] Typing: user ${data.userId}, conversation ${data.conversationId}, isTyping: ${data.isTyping}`
-      );
       if (data.conversationId === selectedChatId && data.userId !== user._id) {
         setTyping(data.isTyping);
         if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
@@ -419,7 +395,6 @@ const Chat = () => {
     };
 
     const handleFollowStatusChanged = (data) => {
-      console.log(`[Chat] Follow status changed: ${data.action}`);
       if (data.action === "follow") {
         fetchConversations();
       }
@@ -427,7 +402,6 @@ const Chat = () => {
 
     const handleMessagesSeen = (data) => {
       const { receiverId } = data;
-      console.log(`[Chat] Messages seen by ${receiverId}`);
 
       // Update all messages sent to this receiver as seen
       setMessages((prev) =>
@@ -462,12 +436,7 @@ const Chat = () => {
     socket.on("follow_status_changed", handleFollowStatusChanged);
     socket.on("messages_seen", handleMessagesSeen);
 
-    console.log("[Chat] Socket event listeners registered");
-    console.log("[Chat] Socket ID:", socket.id);
-    console.log("[Chat] Socket connected:", socket.connected);
-
     return () => {
-      console.log("[Chat] Cleaning up socket event listeners");
       socket.off("receive_message", handleReceiveMessage);
       socket.off("message_sent", handleMessageSent);
       socket.off("user_typing", handleTyping);
@@ -614,7 +583,6 @@ const Chat = () => {
       toast.success(isMuted ? "Chat muted!" : "Chat unmuted!");
       setShowMoreOptions(false);
     } catch (error) {
-      console.error("Error toggling mute:", error);
       toast.error("Failed to update mute status");
     }
   };
@@ -644,7 +612,6 @@ const Chat = () => {
       toast.success("Chat cleared successfully!");
       setShowMoreOptions(false);
     } catch (error) {
-      console.error("Error clearing chat:", error);
       toast.error("Failed to clear chat");
     }
   };
@@ -677,7 +644,6 @@ const Chat = () => {
       // Optionally navigate away from this chat
       setSelectedChatId(null);
     } catch (error) {
-      console.error("Error blocking user:", error);
       toast.error("Failed to block user");
     }
   };
