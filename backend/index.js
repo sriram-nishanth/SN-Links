@@ -32,6 +32,11 @@ app.use(
         return callback(null, true);
       }
 
+      // Allow all Vercel deployments and production URLs
+      if (origin && (origin.includes("vercel.app") || origin.includes("localhost"))) {
+        return callback(null, true);
+      }
+
       // Allow specific production URL from env
       if (process.env.CLIENT_URL && origin === process.env.CLIENT_URL) {
         return callback(null, true);
@@ -69,6 +74,11 @@ const io = new Server(server, {
 
       // Allow all localhost ports
       if (origin.startsWith("http://localhost:") || origin.startsWith("http://127.0.0.1:")) {
+        return callback(null, true);
+      }
+
+      // Allow all Vercel deployments and production URLs
+      if (origin && (origin.includes("vercel.app") || origin.includes("localhost"))) {
         return callback(null, true);
       }
 
