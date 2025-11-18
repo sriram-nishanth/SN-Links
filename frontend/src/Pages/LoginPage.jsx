@@ -5,11 +5,12 @@ import {assert} from '../utils/assest'
 import { useUser } from '../Context/UserContext'
 import { useSocket } from '../Context/SocketContext'
 import { useTranslation } from 'react-i18next'
+import api from '../utils/axios'
 
 const LoginPage = () => {
   const navigate = useNavigate();
   const { t } = useTranslation();
-  const { login } = useUser();
+  const { login, refreshUser } = useUser();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -21,10 +22,24 @@ const LoginPage = () => {
   setError('');
 
   try {
-    await login(email, password);
-    navigate('/home');
+    const response = await api.post('/user/login', {
+      email,
+      password,
+    });
+    if (response.data.success) {
+      const { token } = response.data;
+      document.cookie = `token=${token}; path=/; max-age=${7 * 24 * 60 * 60}; SameSite=Strict`;
+      await refreshUser();
+      navigate('/home');
+    } else {
+      setError(response.data.message || 'Invalid Login Credentials');
+    }
   } catch (err) {
-    setError(err.message || 'Login failed');
+    if (!err.response) {
+      setError('Server not responding. Try again later.');
+    } else {
+      setError(err.response?.data?.message || 'Invalid Login Credentials');
+    }
   } finally {
     setLoading(false);
   }
@@ -73,11 +88,7 @@ const LoginPage = () => {
             />
           </div>
 
-          {error && (
-            <div className="text-red-500 text-sm text-center bg-red-100 bg-opacity-10 p-2 rounded-lg">
-              {error}
-            </div>
-          )}
+          {error && <p className="text-red-500 text-sm mt-2">{error}</p>}
 
           <div className="flex flex-col sm:flex-row justify-between items-center gap-2 sm:gap-0 text-xs sm:text-sm">
             <label className="flex items-center gap-2">
