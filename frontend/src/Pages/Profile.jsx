@@ -792,7 +792,7 @@ const Profile = () => {
             </p>
 
             {/* Followers/Following */}
-            {(!isPrivate || isFollowing) && (
+            {(!isPrivate || isFollowing || isOwnProfile) && (
               <div className="flex gap-4 text-center">
                 <div
                   className="cursor-pointer hover:bg-gray-700/50 rounded-lg p-2 transition-colors"
@@ -844,7 +844,7 @@ const Profile = () => {
           {/* Posts and Media Gallery - Right */}
           <div className="flex-1 bg-[#1A1A1A]/40 backdrop-blur-2xl rounded-2xl p-3 sm:p-4 lg:p-6 max-h-[calc(100vh-130px)] overflow-y-auto">
             {/* Private Profile Message */}
-            {isPrivate && !isFollowing && (
+            {isPrivate && !isFollowing && !isOwnProfile && (
               <div className="flex items-center justify-center h-full">
                 <div className="text-center py-12">
                   <div className="text-5xl mb-4">🔒</div>
@@ -858,8 +858,8 @@ const Profile = () => {
               </div>
             )}
 
-            {/* User Posts - Only show if not private or if following */}
-            {(!isPrivate || isFollowing) && userPosts.length > 0 && (
+            {/* User Posts - Only show if not private or if following or if own profile */}
+            {(!isPrivate || isFollowing || isOwnProfile) && userPosts.length > 0 && (
               <div className="mb-6">
                 <h2 className="text-base sm:text-lg lg:text-xl font-semibold mb-3 sm:mb-4 text-yellow-400">
                   Posts
@@ -898,8 +898,8 @@ const Profile = () => {
               </div>
             )}
 
-            {/* Media Gallery - Only show if not private or if following */}
-            {(!isPrivate || isFollowing) && (
+            {/* Media Gallery - Only show if not private or if following or if own profile */}
+            {(!isPrivate || isFollowing || isOwnProfile) && (
             <div>
               <h2 className="text-base sm:text-lg lg:text-xl font-semibold mb-3 sm:mb-4 text-yellow-400">
                 {t("profile.media")}

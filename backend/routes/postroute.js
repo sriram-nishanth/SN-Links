@@ -7,6 +7,7 @@ import {
     addComment,
     deletePost,
     deleteComment,
+    editComment,
     editPost
 } from '../controllers/postcontrollers.js';
 import protect from '../middleware/auth.js';
@@ -71,5 +72,8 @@ router.delete('/post/:postId', deletePost);
 
 // Delete comment
 router.delete('/posts/:postId/comments/:commentId', deleteComment);
+
+// Edit comment
+router.put('/posts/:postId/comments/:commentId', editComment);
 
 export default router;

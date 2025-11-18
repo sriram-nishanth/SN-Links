@@ -713,9 +713,9 @@ export const getAllUsers = async (req, res) => {
   try {
     const currentUserId = req.user._id; // Current user
 
-    // Get all users except the current user
+    // Get all users except the current user, including followers count
     const users = await User.find({ _id: { $ne: currentUserId } }).select(
-      "name profileImage bio",
+      "name profileImage bio followers",
     );
 
     // Format users data for frontend
@@ -723,6 +723,7 @@ export const getAllUsers = async (req, res) => {
       id: user._id,
       name: user.name,
       profileImage: user.profileImage || "",
+      followers: user.followers,
       action: "Available to follow",
       time: "now",
       isVerified: false, // Add verification logic if needed

@@ -280,6 +280,71 @@ export const deleteComment = async (req, res) => {
   }
 };
 
+// Edit a comment (only by comment author)
+export const editComment = async (req, res) => {
+  try {
+    const { postId, commentId } = req.params;
+    const { text } = req.body;
+    const userId = req.user._id;
+
+    if (!text || !text.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: "Comment text is required",
+      });
+    }
+
+    const post = await Post.findById(postId);
+    if (!post) {
+      return res.status(404).json({
+        success: false,
+        message: "Post not found",
+      });
+    }
+
+    const commentIndex = post.comments.findIndex(
+      (comment) => comment._id.toString() === commentId,
+    );
+    if (commentIndex === -1) {
+      return res.status(404).json({
+        success: false,
+        message: "Comment not found",
+      });
+    }
+
+    const comment = post.comments[commentIndex];
+    if (comment.user.toString() !== userId.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: "Not authorized to edit this comment",
+      });
+    }
+
+    // Update comment text and updatedAt timestamp
+    post.comments[commentIndex].text = text.trim();
+    post.comments[commentIndex].updatedAt = new Date();
+
+    await post.save();
+
+    // Populate the updated comment's user info
+    await post.populate("comments.user", "name profileImage");
+
+    res.status(200).json({
+      success: true,
+      message: "Comment updated successfully",
+      data: {
+        comments: post.comments,
+      },
+    });
+  } catch (error) {
+    console.error("Edit comment error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error updating comment",
+    });
+  }
+};
+
 // Edit a post (only by author)
 export const editPost = async (req, res) => {
   try {

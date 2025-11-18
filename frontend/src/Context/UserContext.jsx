@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
-import axios from "axios";
+import api from "../utils/axios";
 
 const UserContext = createContext();
 
@@ -37,7 +37,7 @@ export const UserProvider = ({ children }) => {
         return;
       }
 
-      const response = await axios.get(`${API_BASE_URL}/user/profile`, {
+      const response = await api.get('/user/profile', {
         headers: {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
@@ -75,11 +75,11 @@ export const UserProvider = ({ children }) => {
     try {
       let response;
       if (googleToken) {
-        response = await axios.post(`${API_BASE_URL}/user/auth/google`, {
+        response = await api.post('/user/auth/google', {
           token: googleToken,
         });
       } else {
-        response = await axios.post(`${API_BASE_URL}/user/login`, {
+        response = await api.post('/user/login', {
           email,
           password,
         });
@@ -115,8 +115,8 @@ export const UserProvider = ({ children }) => {
       // Call backend logout endpoint if token exists (optional but recommended)
       if (token) {
         try {
-          await axios.post(
-            `${API_BASE_URL}/user/logout`,
+          await api.post(
+            '/user/logout',
             {},
             {
               headers: {

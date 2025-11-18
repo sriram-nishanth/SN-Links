@@ -77,6 +77,8 @@ const FollowButton = ({
               },
             })
           );
+          // Refresh user profile to update followers count
+          window.dispatchEvent(new Event("profileUpdated"));
         }
       } else if (requestStatus === "requested") {
         // Cancel follow request
@@ -122,6 +124,8 @@ const FollowButton = ({
                 },
               })
             );
+            // Refresh user profile to update followers count
+            window.dispatchEvent(new Event("profileUpdated"));
           }
         }
       }

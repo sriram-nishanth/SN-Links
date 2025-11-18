@@ -10,8 +10,10 @@ import i18n from "./i18n"; // Initialize i18n
 import { UserProvider } from "./Context/UserContext";
 import { SocketProvider } from "./Context/SocketContext";
 import { NotificationProvider } from "./Context/NotificationContext";
+import { NetworkProvider } from "./Context/NetworkContext";
 import ProtectedRoute from "./Components/ProtectedRoute";
 import GlobalNotificationListener from "./Components/GlobalNotificationListener";
+import NetworkAwareRouter from "./Components/NetworkAwareRouter";
 import "./index.css";
 import App from "./App.jsx";
 import HomePage from "./Pages/HomePage.jsx";
@@ -80,12 +82,13 @@ createRoot(document.getElementById("root")).render(
   <StrictMode>
     <GoogleOAuthProvider clientId={import.meta.env.VITE_GOOGLE_CLIENT_ID}>
       <I18nextProvider i18n={i18n}>
-        <UserProvider>
-          <NotificationProvider>
-            <SocketProvider>
+        <NetworkProvider>
+          <UserProvider>
+            <NotificationProvider>
+              <SocketProvider>
               {/* Global notification listener - handles messages on all pages */}
               <GlobalNotificationListener />
-              <RouterProvider router={router} />
+              <NetworkAwareRouter router={router} />
               <ToastContainer
                 position="bottom-right"
                 autoClose={4000}
@@ -99,9 +102,10 @@ createRoot(document.getElementById("root")).render(
                 theme="dark"
               />
               <Toaster />
-            </SocketProvider>
-          </NotificationProvider>
-        </UserProvider>
+              </SocketProvider>
+            </NotificationProvider>
+          </UserProvider>
+        </NetworkProvider>
       </I18nextProvider>
     </GoogleOAuthProvider>
   </StrictMode>,

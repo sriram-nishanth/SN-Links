@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useUser } from "../Context/UserContext";
 import ModernNavbar from "../Components/ModernNavbar";
@@ -14,11 +14,13 @@ const ExploreUsers = () => {
   const [users, setUsers] = useState([]);
   const [filteredUsers, setFilteredUsers] = useState([]);
   const [followedUsers, setFollowedUsers] = useState(new Set());
+  const [followers, setFollowers] = useState(new Set());
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
-  const [filterType, setFilterType] = useState("all"); // all, following, not-following
+  const [filterType, setFilterType] = useState("all"); // all, followers, following, suggestions
   const [toast, setToast] = useState({ message: "", type: "" });
   const [showFilterDropdown, setShowFilterDropdown] = useState(false);
+  const filterRef = useRef(null);
 
   const API_BASE_URL = "http://localhost:3000/api";
 
@@ -68,32 +70,48 @@ const ExploreUsers = () => {
     fetchUsers();
   }, [user]);
 
-  // Fetch current user's following list
+  // Fetch current user's following and followers lists
   useEffect(() => {
-    const fetchFollowing = async () => {
+    const fetchRelationships = async () => {
       try {
         const token = getToken();
         if (!token) return;
 
-        const response = await axios.get(`${API_BASE_URL}/user/profile`, {
+        // Fetch following
+        const profileResponse = await axios.get(`${API_BASE_URL}/user/profile`, {
           headers: {
             Authorization: `Bearer ${token}`,
             "Content-Type": "application/json",
           },
         });
 
-        if (response.data.success) {
+        if (profileResponse.data.success) {
           const followingIds = new Set(
-            response.data.data.following.map((id) => id.toString())
+            profileResponse.data.data.following.map((id) => id.toString())
           );
           setFollowedUsers(followingIds);
         }
+
+        // Fetch followers
+        const followersResponse = await axios.get(`${API_BASE_URL}/user/followers`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        });
+
+        if (followersResponse.data.success) {
+          const followerIds = new Set(
+            followersResponse.data.data.map((follower) => follower.id.toString())
+          );
+          setFollowers(followerIds);
+        }
       } catch (error) {
-        console.error("Error fetching following list:", error);
+        console.error("Error fetching relationships:", error);
       }
     };
 
-    fetchFollowing();
+    fetchRelationships();
   }, [user]);
 
   // Listen for follow state changes
@@ -117,6 +135,23 @@ const ExploreUsers = () => {
     };
   }, []);
 
+  // Handle click outside to close filter dropdown
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (filterRef.current && !filterRef.current.contains(event.target)) {
+        setShowFilterDropdown(false);
+      }
+    };
+
+    if (showFilterDropdown) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [showFilterDropdown]);
+
   // Filter users based on search and filter type
   useEffect(() => {
     let result = users;
@@ -130,15 +165,21 @@ const ExploreUsers = () => {
       );
     }
 
-    // Apply follow filter
-    if (filterType === "following") {
+    // Apply relationship filter
+    if (filterType === "followers") {
+      // Users who follow the current user
+      result = result.filter((u) => followers.has(u.id));
+    } else if (filterType === "following") {
+      // Users the current user follows
       result = result.filter((u) => followedUsers.has(u.id));
-    } else if (filterType === "not-following") {
-      result = result.filter((u) => !followedUsers.has(u.id));
+    } else if (filterType === "suggestions") {
+      // Users not followed by current user and don't follow current user
+      result = result.filter((u) => !followedUsers.has(u.id) && !followers.has(u.id));
     }
+    // "all" shows all users (no additional filtering)
 
     setFilteredUsers(result);
-  }, [searchQuery, filterType, users, followedUsers]);
+  }, [searchQuery, filterType, users, followedUsers, followers]);
 
   // Handle follow change callback
   const handleFollowChange = (userId, isFollowing, counts) => {
@@ -194,7 +235,7 @@ const ExploreUsers = () => {
           </div>
 
           {/* Search and Filter Bar */}
-          <div className="bg-[#1A1A1A]/40 backdrop-blur-2xl rounded-xl p-4 mb-6 flex flex-col sm:flex-row gap-3">
+          <div className="bg-[#1A1A1A]/40 backdrop-blur-2xl rounded-xl p-4 mb-6 flex flex-col sm:flex-row gap-3 relative z-20">
             {/* Search Input */}
             <div className="flex-1 relative">
               <BsSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
@@ -208,36 +249,56 @@ const ExploreUsers = () => {
             </div>
 
             {/* Filter Dropdown */}
-            <div className="relative">
+            <div className="relative inline-block text-left pointer-events-auto" ref={filterRef}>
               <button
-                onClick={() => setShowFilterDropdown(!showFilterDropdown)}
-                className="flex items-center gap-2 bg-gray-700 text-white px-4 py-2.5 rounded-lg hover:bg-gray-600 transition-all w-full sm:w-auto justify-center"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowFilterDropdown(!showFilterDropdown);
+                }}
+                className="flex items-center gap-2 bg-gray-700 text-white px-4 py-2.5 rounded-lg hover:bg-gray-600 transition-all w-full sm:w-auto justify-center pointer-events-auto"
               >
                 <BsFilter className="w-5 h-5" />
                 <span className="capitalize">
                   {filterType === "all"
                     ? "All Users"
+                    : filterType === "followers"
+                    ? "Followers"
                     : filterType === "following"
                     ? "Following"
-                    : "Not Following"}
+                    : "Suggestions"}
                 </span>
               </button>
 
               {showFilterDropdown && (
-                <div className="absolute right-0 mt-2 w-48 bg-gray-800 rounded-lg shadow-lg z-10 border border-gray-700">
+                <div className="absolute right-0 mt-2 w-40 rounded-xl shadow-lg z-[100] bg-[#1e1e1e] border border-neutral-700 transition-all duration-200 pointer-events-auto">
                   <button
-                    onClick={() => {
+                    onClick={(e) => {
+                      e.stopPropagation();
                       setFilterType("all");
                       setShowFilterDropdown(false);
                     }}
-                    className={`w-full text-left px-4 py-2 hover:bg-gray-700 rounded-t-lg transition ${
+                    className={`w-full text-left px-4 py-2 hover:bg-gray-700 rounded-t-xl transition ${
                       filterType === "all" ? "bg-gray-700 text-yellow-400" : "text-white"
                     }`}
                   >
                     All Users
                   </button>
+
                   <button
-                    onClick={() => {
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setFilterType("followers");
+                      setShowFilterDropdown(false);
+                    }}
+                    className={`w-full text-left px-4 py-2 hover:bg-gray-700 transition ${
+                      filterType === "followers" ? "bg-gray-700 text-yellow-400" : "text-white"
+                    }`}
+                  >
+                    Followers
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
                       setFilterType("following");
                       setShowFilterDropdown(false);
                     }}
@@ -248,15 +309,16 @@ const ExploreUsers = () => {
                     Following
                   </button>
                   <button
-                    onClick={() => {
-                      setFilterType("not-following");
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setFilterType("suggestions");
                       setShowFilterDropdown(false);
                     }}
-                    className={`w-full text-left px-4 py-2 hover:bg-gray-700 rounded-b-lg transition ${
-                      filterType === "not-following" ? "bg-gray-700 text-yellow-400" : "text-white"
+                    className={`w-full text-left px-4 py-2 hover:bg-gray-700 rounded-b-xl transition ${
+                      filterType === "suggestions" ? "bg-gray-700 text-yellow-400" : "text-white"
                     }`}
                   >
-                    Not Following
+                    Suggestions
                   </button>
                 </div>
               )}
@@ -266,20 +328,56 @@ const ExploreUsers = () => {
           {/* Stats Bar */}
           <div className="grid grid-cols-3 gap-4 mb-6">
             <div className="bg-[#1A1A1A]/40 backdrop-blur-2xl rounded-xl p-4 text-center">
-              <p className="text-2xl font-bold text-yellow-400">{users.length}</p>
-              <p className="text-gray-400 text-sm">Total Users</p>
+              <p className="text-2xl font-bold text-yellow-400">{filteredUsers.length}</p>
+              <p className="text-gray-400 text-sm">
+                {filterType === "all"
+                  ? "Total Users"
+                  : filterType === "followers"
+                  ? "Followers"
+                  : filterType === "following"
+                  ? "Following"
+                  : "Suggestions"}
+              </p>
             </div>
             <div className="bg-[#1A1A1A]/40 backdrop-blur-2xl rounded-xl p-4 text-center">
               <p className="text-2xl font-bold text-green-400">
-                {followedUsers.size}
+                {filterType === "all"
+                  ? followedUsers.size
+                  : filterType === "followers"
+                  ? followers.size
+                  : filterType === "following"
+                  ? followedUsers.size
+                  : users.filter((u) => !followedUsers.has(u.id) && !followers.has(u.id)).length}
               </p>
-              <p className="text-gray-400 text-sm">Following</p>
+              <p className="text-gray-400 text-sm">
+                {filterType === "all"
+                  ? "Following"
+                  : filterType === "followers"
+                  ? "Total Followers"
+                  : filterType === "following"
+                  ? "Total Following"
+                  : "Suggestions"}
+              </p>
             </div>
             <div className="bg-[#1A1A1A]/40 backdrop-blur-2xl rounded-xl p-4 text-center">
               <p className="text-2xl font-bold text-blue-400">
-                {users.length - followedUsers.size}
+                {filterType === "all"
+                  ? users.length
+                  : filterType === "followers"
+                  ? followers.size
+                  : filterType === "following"
+                  ? followedUsers.size
+                  : users.filter((u) => !followedUsers.has(u.id) && !followers.has(u.id)).length}
               </p>
-              <p className="text-gray-400 text-sm">Discover</p>
+              <p className="text-gray-400 text-sm">
+                {filterType === "all"
+                  ? "All Users"
+                  : filterType === "followers"
+                  ? "Followers Count"
+                  : filterType === "following"
+                  ? "Following Count"
+                  : "Suggestions Count"}
+              </p>
             </div>
           </div>
 
@@ -290,13 +388,17 @@ const ExploreUsers = () => {
               <p className="text-gray-500 text-sm">
                 {searchQuery
                   ? "Try adjusting your search query"
+                  : filterType === "followers"
+                  ? "No followers yet"
                   : filterType === "following"
                   ? "You're not following anyone yet"
+                  : filterType === "suggestions"
+                  ? "No suggestions available"
                   : "Start exploring and connecting!"}
               </p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-8">
               {filteredUsers.map((person) => (
                 <div
                   key={person.id}

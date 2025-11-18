@@ -35,6 +35,8 @@ const EnhancedPostSlide = ({ searchQuery }) => {
   const [editingPostId, setEditingPostId] = useState(null);
   const [editContent, setEditContent] = useState("");
   const [deletePostId, setDeletePostId] = useState(null);
+  const [editingCommentId, setEditingCommentId] = useState(null);
+  const [editCommentContent, setEditCommentContent] = useState("");
   const [loading, setLoading] = useState(true);
   const [showProfileImage, setShowProfileImage] = useState(null);
   const [toast, setToast] = useState({ message: "", type: "" });
@@ -336,6 +338,75 @@ const EnhancedPostSlide = ({ searchQuery }) => {
     } catch (error) {
       console.error("Error adding comment:", error);
       setToast({ message: "Error adding comment", type: "error" });
+    }
+  };
+
+  // Handle edit comment
+  const handleEditComment = async (postId, commentId) => {
+    if (!editCommentContent.trim()) return;
+
+    try {
+      const token = getToken();
+      const response = await axios.put(
+        `${API_BASE_URL}/posts/${postId}/comments/${commentId}`,
+        { text: editCommentContent },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        },
+      );
+
+      if (response.data.success) {
+        setPosts((prev) =>
+          prev.map((post) =>
+            post.id === postId
+              ? { ...post, comments: response.data.data.comments }
+              : post,
+          ),
+        );
+        setEditingCommentId(null);
+        setEditCommentContent("");
+        setToast({ message: "Comment updated!", type: "success" });
+      }
+    } catch (error) {
+      console.error("Error editing comment:", error);
+      setToast({ message: "Error editing comment", type: "error" });
+    }
+  };
+
+  // Handle delete comment
+  const handleDeleteComment = async (postId, commentId) => {
+    try {
+      const token = getToken();
+      const response = await axios.delete(
+        `${API_BASE_URL}/posts/${postId}/comments/${commentId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      );
+
+      if (response.data.success) {
+        setPosts((prev) =>
+          prev.map((post) =>
+            post.id === postId
+              ? {
+                  ...post,
+                  comments: post.comments.filter(
+                    (comment) => comment._id !== commentId,
+                  ),
+                }
+              : post,
+          ),
+        );
+        setToast({ message: "Comment deleted!", type: "success" });
+      }
+    } catch (error) {
+      console.error("Error deleting comment:", error);
+      setToast({ message: "Error deleting comment", type: "error" });
     }
   };
 
@@ -735,19 +806,73 @@ const EnhancedPostSlide = ({ searchQuery }) => {
                 </div>
                 <div className="space-y-3">
                   {post.comments?.map((comment, index) => (
-                    <div key={index} className="flex gap-3">
+                    <div key={comment._id || index} className="flex gap-3">
                       <Avatar
                         src={comment.user?.profileImage}
                         name={comment.user?.name || "User"}
                         size="small"
                       />
-                      <div className="flex-1 bg-gray-800 rounded-lg p-3">
-                        <p className="text-white font-semibold text-sm">
-                          {comment.user?.name || "User"}
-                        </p>
-                        <p className="text-gray-300 text-sm">
-                        {comment.text}
-                        </p>
+                      <div className="flex-1">
+                        {editingCommentId === comment._id ? (
+                          <div className="bg-gray-800 rounded-lg p-3">
+                            <p className="text-white font-semibold text-sm mb-2">
+                              {comment.user?.name || "User"}
+                            </p>
+                            <textarea
+                              value={editCommentContent}
+                              onChange={(e) => setEditCommentContent(e.target.value)}
+                              className="w-full bg-gray-700 text-white rounded px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-yellow-400"
+                              rows="2"
+                            />
+                            <div className="flex gap-2 mt-2">
+                              <button
+                                onClick={() => handleEditComment(post.id, comment._id)}
+                                className="bg-yellow-400 text-black px-3 py-1 rounded text-sm hover:bg-yellow-500"
+                              >
+                                Save
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setEditingCommentId(null);
+                                  setEditCommentContent("");
+                                }}
+                                className="bg-gray-600 text-white px-3 py-1 rounded text-sm hover:bg-gray-700"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="bg-gray-800 rounded-lg p-3 relative group">
+                            <p className="text-white font-semibold text-sm">
+                              {comment.user?.name || "User"}
+                            </p>
+                            <p className="text-gray-300 text-sm">
+                              {comment.text}
+                            </p>
+                            {comment.user?._id === user?._id && (
+                              <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
+                                <button
+                                  onClick={() => {
+                                    setEditingCommentId(comment._id);
+                                    setEditCommentContent(comment.text);
+                                  }}
+                                  className="text-gray-400 hover:text-yellow-400 text-sm"
+                                  title="Edit comment"
+                                >
+                                  <FaEdit />
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteComment(post.id, comment._id)}
+                                  className="text-gray-400 hover:text-red-400 text-sm"
+                                  title="Delete comment"
+                                >
+                                  <FaTrash />
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
                     </div>
                   ))}

@@ -33,6 +33,9 @@ const PostSlide = ({ searchQuery }) => {
   const [followedUsers, setFollowedUsers] = useState(new Set());
   const [editingPostId, setEditingPostId] = useState(null);
   const [editContent, setEditContent] = useState("");
+  const [editingCommentId, setEditingCommentId] = useState(null);
+  const [editCommentContent, setEditCommentContent] = useState("");
+  const [showCommentMenu, setShowCommentMenu] = useState(null);
   const [friends, setFriends] = useState([]);
   const [deletePostId, setDeletePostId] = useState(null);
   const [userProfile, setUserProfile] = useState(null);
@@ -72,6 +75,20 @@ const PostSlide = ({ searchQuery }) => {
       };
     }
   }, [socket]);
+
+  // Close comment menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (showCommentMenu && !event.target.closest('.comment-menu')) {
+        setShowCommentMenu(null);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showCommentMenu]);
 
   // Fetch user profile and posts from backend
   useEffect(() => {
@@ -154,12 +171,17 @@ const PostSlide = ({ searchQuery }) => {
               likedByUser: currentUserData
                 ? post.likes.includes(currentUserData._id)
                 : false,
-              comments: post.comments.map((comment) => ({
-                id: comment._id,
-                user: comment.user.name,
-                text: comment.text,
-                userId: comment.user._id,
-              })),
+              comments: post.comments.map((comment) => {
+                console.log("Comment data:", comment);
+                return {
+                  id: comment._id,
+                  user: comment.user.name,
+                  text: comment.text,
+                  userId: comment.user._id,
+                  createdAt: comment.createdAt,
+                  updatedAt: comment.updatedAt,
+                };
+              }),
               timestamp: new Date(post.createdAt).toLocaleDateString(),
             }));
             setPosts(transformedPosts);
@@ -667,6 +689,75 @@ const PostSlide = ({ searchQuery }) => {
     }
   };
 
+  const handleEditComment = async (postId, commentId) => {
+    try {
+      const token = user?.token;
+      if (!token) {
+        setToast({ message: "Please login to edit comments", type: "error" });
+        return;
+      }
+
+      if (!editCommentContent.trim()) {
+        setToast({ message: "Comment cannot be empty", type: "error" });
+        return;
+      }
+
+      const response = await fetch(
+        `http://localhost:3000/api/posts/${postId}/comments/${commentId}`,
+        {
+          method: "PUT",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ text: editCommentContent.trim() }),
+        },
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          // Update comment in local state
+          setPosts((prevPosts) =>
+            prevPosts.map((post) =>
+              post.id === postId
+                ? {
+                    ...post,
+                    comments: data.data.comments.map((comment) => ({
+                      id: comment._id,
+                      user: comment.user.name,
+                      text: comment.text,
+                      userId: comment.user._id,
+                      createdAt: comment.createdAt,
+                      updatedAt: comment.updatedAt,
+                    })),
+                  }
+                : post,
+            ),
+          );
+          setEditingCommentId(null);
+          setEditCommentContent("");
+          setToast({ message: "Comment updated successfully", type: "success" });
+        }
+      } else {
+        setToast({ message: "Failed to update comment", type: "error" });
+      }
+    } catch (error) {
+      console.error("Error updating comment:", error);
+      setToast({ message: "Error updating comment", type: "error" });
+    }
+  };
+
+  const startEditingComment = (commentId, currentText) => {
+    setEditingCommentId(commentId);
+    setEditCommentContent(currentText);
+  };
+
+  const cancelEditingComment = () => {
+    setEditingCommentId(null);
+    setEditCommentContent("");
+  };
+
   return (
     <div
       className="w-full max-w-4xl mx-auto h-[calc(100vh-7rem)] overflow-y-auto space-y-3 sm:space-y-4 lg:space-y-6 px-2 sm:px-0
@@ -923,15 +1014,91 @@ const PostSlide = ({ searchQuery }) => {
                     className="flex items-start gap-2 text-xs sm:text-sm group"
                   >
                     <span className="font-semibold">{comment.user}:</span>
-                    <p className="text-gray-300 flex-1">{comment.text}</p>
-                    {comment.userId === currentUserId && (
-                      <button
-                        onClick={() => handleDeleteComment(post.id, comment.id)}
-                        className="text-red-400 hover:text-red-300 text-xs transition-colors"
-                        title="Delete comment"
-                      >
-                        ✕
-                      </button>
+                    {editingCommentId === comment.id ? (
+                      <div className="flex-1 mt-2">
+                        <div className="flex items-center gap-2 bg-[#2A2A2A] rounded-lg p-2 border border-yellow-400/30">
+                          <input
+                            type="text"
+                            value={editCommentContent}
+                            onChange={(e) => setEditCommentContent(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") {
+                                handleEditComment(post.id, comment.id);
+                              } else if (e.key === "Escape") {
+                                cancelEditingComment();
+                              }
+                            }}
+                            className="flex-1 bg-transparent text-sm text-gray-300 focus:outline-none"
+                            placeholder="Edit your comment..."
+                            autoFocus
+                          />
+                          <div className="flex gap-1">
+                            <button
+                              onClick={() => handleEditComment(post.id, comment.id)}
+                              className="text-green-400 hover:text-green-300 px-2 py-1 rounded text-sm font-medium hover:bg-green-400/10 transition-colors"
+                              title="Save changes"
+                            >
+                              Save
+                            </button>
+                            <button
+                              onClick={cancelEditingComment}
+                              className="text-gray-400 hover:text-gray-300 px-2 py-1 rounded text-sm hover:bg-gray-700 transition-colors"
+                              title="Cancel editing"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <p className="text-gray-300 flex-1">{comment.text}</p>
+                        {comment.updatedAt && comment.updatedAt !== comment.createdAt && (
+                          <span className="text-gray-500 text-xs italic">(edited)</span>
+                        )}
+                        {comment.userId === currentUserId && (
+                          <div className="relative comment-menu">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setShowCommentMenu(showCommentMenu === comment.id ? null : comment.id);
+                              }}
+                              className="text-gray-400 hover:text-gray-300 text-sm p-1 rounded-full hover:bg-gray-700/50 transition-colors"
+                              title="Comment options"
+                            >
+                              ⋮
+                            </button>
+
+                            {/* Comment Menu */}
+                            {showCommentMenu === comment.id && (
+                              <div className="absolute right-0 top-6 bg-[#1A1A1A] border border-gray-600 rounded-lg shadow-lg z-10 min-w-[120px] py-1">
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    startEditingComment(comment.id, comment.text);
+                                    setShowCommentMenu(null);
+                                  }}
+                                  className="w-full text-left px-3 py-2 text-sm text-gray-300 hover:bg-gray-700 hover:text-white transition-colors flex items-center gap-2"
+                                >
+                                  <span className="text-blue-400">✎</span>
+                                  Edit
+                                </button>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleDeleteComment(post.id, comment.id);
+                                    setShowCommentMenu(null);
+                                  }}
+                                  className="w-full text-left px-3 py-2 text-sm text-gray-300 hover:bg-red-600 hover:text-white transition-colors flex items-center gap-2"
+                                >
+                                  <span className="text-red-400">🗑</span>
+                                  Delete
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </>
                     )}
                   </div>
                 ))}
