@@ -26,6 +26,7 @@ app.use(
   cors({
     origin: [
       "https://sn-links-fro.vercel.app",
+      "https://sn-links-rag9.vercel.app",
       "http://localhost:5173",
       "http://localhost:5174",
       "http://localhost:5175",
@@ -60,6 +61,7 @@ const io = new Server(server, {
   cors: {
     origin: [
       "https://sn-links-fro.vercel.app",
+      "https://sn-links-rag9.vercel.app",
       "http://localhost:5173",
       "http://localhost:5174",
       "http://localhost:5175",
