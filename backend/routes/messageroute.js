@@ -3,6 +3,7 @@ import {
   getMessages,
   sendMessage,
   markMessagesAsRead,
+  markAsSeen,
   getUnreadCount,
   getConversations,
   uploadFile,
@@ -27,6 +28,9 @@ router.post('/', sendMessage);
 
 // Upload file
 router.post('/upload', upload.single('file'), uploadFile);
+
+// Mark messages as seen (viewed)
+router.put('/markAsSeen', markAsSeen);
 
 // Mark messages as read from a specific user
 router.put('/read/:senderId', markMessagesAsRead);

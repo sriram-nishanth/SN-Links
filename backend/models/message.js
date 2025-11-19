@@ -19,7 +19,7 @@ const messageSchema = new mongoose.Schema({
   },
   messageType: {
     type: String,
-    enum: ['text', 'image', 'video', 'shared_post'],
+    enum: ['text', 'image', 'video', 'post'],
     default: 'text'
   },
   media: {
@@ -27,6 +27,10 @@ const messageSchema = new mongoose.Schema({
     default: null,
     // Required for image/video messages
     required: function() { return ['image', 'video'].includes(this.messageType); }
+  },
+  postId: {
+    type: String,
+    default: null
   },
   isRead: {
     type: Boolean,

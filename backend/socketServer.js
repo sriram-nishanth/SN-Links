@@ -4,6 +4,15 @@ import Message from "./models/message.js";
 
 // Store active socket connections by userId
 const activeConnections = new Map();
+let globalIO = null;
+
+export const setIO = (io) => {
+  globalIO = io;
+};
+
+export const getIO = () => {
+  return globalIO;
+};
 
 /**
  * Get all online users
@@ -103,7 +112,7 @@ export const initializeSocket = (io) => {
      */
     socket.on("send_message", async (data) => {
       try {
-        const { receiverId, content, messageType = "text", media = null } = data;
+        const { receiverId, content, messageType = "text", media = null, postId = null } = data;
 
         if (!receiverId || !content) {
           socket.emit("message_error", {
@@ -116,14 +125,19 @@ export const initializeSocket = (io) => {
           `[Send Message] From: ${userId}, To: ${receiverId}, Type: ${messageType}`
         );
 
-        // Save message to database
-        const message = new Message({
+        const messageData = {
           sender: userId,
           receiver: receiverId,
           content,
           messageType,
           media,
-        });
+        };
+
+        if (postId) {
+          messageData.postId = postId;
+        }
+
+        const message = new Message(messageData);
 
         await message.save();
         await message.populate("sender", "name profileImage _id");
@@ -142,6 +156,8 @@ export const initializeSocket = (io) => {
           content: message.content,
           messageType: message.messageType,
           media: message.media,
+          image: message.media,
+          postId: message.postId,
           createdAt: message.createdAt,
           timestamp: message.createdAt,
           isRead: message.isRead,

@@ -12,7 +12,8 @@ import "./config/cloudinary.js"; // Initialize Cloudinary
 import userroute from "./routes/userroute.js";
 import postroute from "./routes/postroute.js";
 import messageroute from "./routes/messageroute.js";
-import { initializeSocket } from "./socketServer.js";
+import chatroute from "./routes/chatroute.js";
+import { initializeSocket, setIO } from "./socketServer.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -51,6 +52,7 @@ connectDB();
 app.use("/api", userroute);
 app.use("/api", postroute);
 app.use("/api/messages", messageroute);
+app.use("/api/chat", chatroute);
 
 // Create HTTP server and Socket.IO
 const server = createServer(app);
@@ -78,6 +80,9 @@ const io = new Server(server, {
   pingInterval: 25000,
   pingTimeout: 60000,
 });
+
+// Set global IO instance
+setIO(io);
 
 // Initialize Socket.IO with proper event handlers
 initializeSocket(io);

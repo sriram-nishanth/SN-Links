@@ -11,6 +11,7 @@ import { useTranslation } from "react-i18next";
 import { useUser } from "../Context/UserContext";
 import Avatar from "../Components/Avatar";
 import { GoogleLogin } from '@react-oauth/google';
+import bgProfile from "../assets/bgprofile.png";
 
 
 const Setting = () => {
@@ -874,7 +875,7 @@ const Setting = () => {
                           src={
                             coverImagePreview ||
                             user?.coverImage ||
-                            "/default-cover.png"
+                            bgProfile
                           }
                           alt="Cover"
                           className="w-full h-48 sm:h-56 rounded-lg object-cover border-2 border-yellow-400"
@@ -1388,11 +1389,11 @@ const Setting = () => {
                         src={
                           coverImagePreview ||
                           user?.coverImage ||
-                          "/assets/default-cover.png"
+                          bgProfile
                         }
                         alt="Current cover"
                         className="w-full h-full object-cover"
-                        onError={(e) => e.target.src = '/assets/default-cover.png'}
+                        onError={(e) => e.target.src = bgProfile}
                       />
                     </div>
                   )}

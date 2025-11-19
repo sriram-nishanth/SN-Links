@@ -18,10 +18,12 @@ import { FiSmile, FiPaperclip, FiMoreVertical, FiImage } from "react-icons/fi";
 import { motion, AnimatePresence } from "framer-motion";
 import ModernNavbar from "../Components/ModernNavbar";
 import Avatar from "../Components/Avatar";
+import MediaPreviewModal from "../Components/MediaPreviewModal";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { useUser } from "../Context/UserContext";
 import { useSocket } from "../Context/SocketContext";
+import { markAsSeen } from "../utils/chatService";
 import axios from "axios";
 
 const Chat = () => {
@@ -55,6 +57,10 @@ const Chat = () => {
   const [loading, setLoading] = useState(false);
   const [typing, setTyping] = useState(false);
   const [sendingMessage, setSendingMessage] = useState(false);
+  const [previewModalOpen, setPreviewModalOpen] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState(null);
+  const [previewType, setPreviewType] = useState(null);
+  const [expandedSharedPost, setExpandedSharedPost] = useState(null);
 
   const messagesEndRef = useRef(null);
   const callIntervalRef = useRef(null);
@@ -183,6 +189,8 @@ const Chat = () => {
           status: msg.isRead ? "read" : "delivered",
           messageType: msg.messageType || "text",
           media: msg.media,
+          image: msg.media,
+          postId: msg.postId || null,
           seen: msg.seen || false,
         }));
 
@@ -192,6 +200,17 @@ const Chat = () => {
         }));
       } catch (error) {
         // Error fetching messages
+      }
+    };
+
+    // Mark messages as seen when opening chat
+    const markMessagesAsSeenAsync = async () => {
+      if (!selectedChatId) return;
+
+      try {
+        await markAsSeen(selectedChatId);
+      } catch (error) {
+        console.error("Error marking messages as seen:", error);
       }
     };
 
@@ -224,6 +243,7 @@ const Chat = () => {
     };
 
     fetchMessages();
+    markMessagesAsSeenAsync();
     checkStatusAsync();
   }, [selectedChatId, user]);
 
@@ -234,12 +254,26 @@ const Chat = () => {
       const roomId = [user._id, selectedChatId].sort().join("_");
       joinRoom(roomId);
 
-      // Emit message_seen event to mark messages as seen
+      // Clear unread count immediately when opening chat
+      setConversations((prev) =>
+        prev.map((conv) =>
+          conv.user._id === selectedChatId
+            ? {
+                ...conv,
+                unreadCount: 0,
+                lastMessage: conv.lastMessage
+                  ? { ...conv.lastMessage, seen: true }
+                  : null,
+              }
+            : conv
+        )
+      );
+
+      // Emit message_seen event to mark messages as seen on backend
       socket.emit("message_seen", {
         senderId: selectedChatId,
         receiverId: user._id,
       });
-
     }
   }, [selectedChatId, socket, user, joinRoom]);
 
@@ -261,13 +295,15 @@ const Chat = () => {
         id: message._id,
         text: message.content,
         content: message.content,
-        sender: "other", // Always "other" since this is receive_message event
+        sender: "other",
         senderId: message.senderId || message.sender?._id,
         receiverId: message.receiverId,
         timestamp: new Date(message.createdAt || message.timestamp),
         status: "delivered",
         messageType: message.messageType || "text",
         media: message.media,
+        image: message.image || message.media,
+        postId: message.postId || null,
         seen: message.seen || false,
       };
 
@@ -297,6 +333,7 @@ const Chat = () => {
                 lastMessage: {
                   content: message.content,
                   createdAt: new Date(message.createdAt || message.timestamp),
+                  seen: message.seen || false,
                 },
               }
             : conv
@@ -351,6 +388,8 @@ const Chat = () => {
             status: "delivered",
             messageType: message.messageType || "text",
             media: message.media,
+            image: message.image || message.media,
+            postId: message.postId || null,
             seen: message.seen || false,
           };
           return {
@@ -375,6 +414,8 @@ const Chat = () => {
               status: "delivered",
               messageType: message.messageType || "text",
               media: message.media,
+              image: message.image || message.media,
+              postId: message.postId || null,
               seen: message.seen || false,
             },
           ],
@@ -415,10 +456,18 @@ const Chat = () => {
         }, {})
       );
 
-      // Clear unread count for the conversation
+      // Clear unread count for the conversation and update last message seen status
       setConversations((prev) =>
         prev.map((conv) =>
-          conv.user._id === receiverId ? { ...conv, unreadCount: 0 } : conv
+          conv.user._id === receiverId
+            ? {
+                ...conv,
+                unreadCount: 0,
+                lastMessage: conv.lastMessage
+                  ? { ...conv.lastMessage, seen: true }
+                  : null,
+              }
+            : conv
         )
       );
     };
@@ -567,14 +616,25 @@ const Chat = () => {
     }
   };
 
-  // Mute/Unmute conversation
+  const openMediaPreview = (url, type) => {
+    setPreviewUrl(url);
+    setPreviewType(type);
+    setPreviewModalOpen(true);
+  };
+
+  const closeMediaPreview = () => {
+    setPreviewModalOpen(false);
+    setPreviewUrl(null);
+    setPreviewType(null);
+  };
+
   const toggleMute = async () => {
     const token = getToken();
     if (!token || !selectedChatId) return;
 
     try {
       const response = await axios.post(
-        `${API_BASE_URL}/user/mute/${selectedChatId}`,
+        `${import.meta.env.VITE_API_CALL}/user/mute/${selectedChatId}`,
         {},
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -587,7 +647,6 @@ const Chat = () => {
     }
   };
 
-  // Clear chat with confirmation
   const clearChat = async () => {
     if (!selectedChatId) return;
 
@@ -600,7 +659,7 @@ const Chat = () => {
     if (!token) return;
 
     try {
-      await axios.delete(`${API_BASE_URL}/messages/${selectedChatId}/clear`, {
+      await axios.delete(`${import.meta.env.VITE_API_CALL}/messages/${selectedChatId}/clear`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
@@ -616,7 +675,6 @@ const Chat = () => {
     }
   };
 
-  // Block user with confirmation
   const blockUser = async () => {
     if (!selectedChatId) return;
 
@@ -630,25 +688,22 @@ const Chat = () => {
 
     try {
       await axios.post(
-        `${API_BASE_URL}/user/block/${selectedChatId}`,
+        `${import.meta.env.VITE_API_CALL}/user/block/${selectedChatId}`,
         {},
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
       toast.success("User blocked successfully!");
 
-      // Clear input and disable messaging
       setMessage("");
       setShowMoreOptions(false);
 
-      // Optionally navigate away from this chat
       setSelectedChatId(null);
     } catch (error) {
       toast.error("Failed to block user");
     }
   };
 
-  // Send selected media (image/video)
   const handleSendMedia = async () => {
     if (!selectedFile || !selectedChatId || sendingMessage) return;
 
@@ -665,7 +720,7 @@ const Chat = () => {
       formData.append("file", selectedFile);
 
       const uploadRes = await axios.post(
-        `${API_BASE_URL}/messages/upload`,
+        `${import.meta.env.VITE_API_CALL}/messages/upload`,
         formData,
         {
           headers: {
@@ -1465,19 +1520,50 @@ const Chat = () => {
                                     <img
                                       src={msg.media || msg.content}
                                       alt="image"
-                                      className="max-h-64 rounded-md mt-1"
+                                      className="max-h-64 rounded-md mt-1 cursor-pointer hover:opacity-90 transition-opacity"
+                                      onClick={() =>
+                                        openMediaPreview(
+                                          msg.media || msg.content,
+                                          "image"
+                                        )
+                                      }
                                     />
                                   ) : msg.messageType === "video" &&
                                     (msg.media || msg.content) ? (
                                     <video
                                       controls
-                                      className="w-full max-h-64 rounded-md mt-1"
+                                      className="w-full max-h-64 rounded-md mt-1 cursor-pointer hover:opacity-90 transition-opacity"
+                                      onClick={() =>
+                                        openMediaPreview(
+                                          msg.media || msg.content,
+                                          "video"
+                                        )
+                                      }
                                     >
                                       <source
                                         src={msg.media || msg.content}
                                         type="video/mp4"
                                       />
                                     </video>
+                                  ) : msg.messageType === "post" ? (
+                                    <div className="cursor-pointer group">
+                                      {msg.image && (
+                                        <img
+                                          src={msg.image}
+                                          alt="shared post"
+                                          className="w-full max-h-48 object-cover rounded-md mb-2 group-hover:opacity-80 transition-opacity"
+                                        />
+                                      )}
+                                      <div className="text-xs text-white/70 mb-1 font-semibold">
+                                        Shared Post
+                                      </div>
+                                      <p className="text-sm break-words line-clamp-3">
+                                        {msg.content}
+                                      </p>
+                                      <div className="mt-2 text-xs text-white/50">
+                                        Click to view
+                                      </div>
+                                    </div>
                                   ) : (
                                     <p className="text-sm break-words whitespace-pre-wrap">
                                       {msg.text || msg.content}
@@ -1693,6 +1779,13 @@ const Chat = () => {
           </div>
         </div>
       )}
+
+      <MediaPreviewModal
+        isOpen={previewModalOpen}
+        url={previewUrl}
+        type={previewType}
+        onClose={closeMediaPreview}
+      />
     </div>
   );
 };

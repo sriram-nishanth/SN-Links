@@ -5,6 +5,7 @@ import { useSocket } from "../Context/SocketContext";
 import Avatar from "./Avatar";
 import FollowButton from "./FollowButton";
 import Toast from "./Toast";
+import SharePostModal from "./SharePostModal";
 import {
   FaRegHeart,
   FaHeart,
@@ -42,6 +43,8 @@ const EnhancedPostSlide = ({ searchQuery }) => {
   const [toast, setToast] = useState({ message: "", type: "" });
   const [showDropdown, setShowDropdown] = useState(null);
   const [showAllPosts, setShowAllPosts] = useState(false);
+  const [shareModalOpen, setShareModalOpen] = useState(false);
+  const [selectedPostForShare, setSelectedPostForShare] = useState(null);
 
   const API_BASE_URL = `${import.meta.env.VITE_API_CALL}`;
 
@@ -762,7 +765,13 @@ const EnhancedPostSlide = ({ searchQuery }) => {
                 <FaRegComment />
                 <span>{post.comments?.length || 0}</span>
               </button>
-              <button className="flex items-center gap-2 text-gray-400 hover:text-green-500 transition">
+              <button
+                onClick={() => {
+                  setSelectedPostForShare(post);
+                  setShareModalOpen(true);
+                }}
+                className="flex items-center gap-2 text-gray-400 hover:text-green-500 transition"
+              >
                 <FaTelegramPlane />
               </button>
             </div>
@@ -916,6 +925,19 @@ const EnhancedPostSlide = ({ searchQuery }) => {
           />
         </div>
       )}
+
+      <SharePostModal
+        isOpen={shareModalOpen}
+        onClose={() => {
+          setShareModalOpen(false);
+          setSelectedPostForShare(null);
+        }}
+        post={selectedPostForShare}
+        onSendSuccess={() => {
+          setShareModalOpen(false);
+          setSelectedPostForShare(null);
+        }}
+      />
     </div>
   );
 };

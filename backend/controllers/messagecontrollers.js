@@ -184,6 +184,45 @@ export const markMessagesAsRead = async (req, res) => {
   }
 };
 
+// Mark messages as seen (viewed by receiver)
+export const markAsSeen = async (req, res) => {
+  try {
+    const { senderId } = req.body;
+    const receiverId = req.user._id;
+
+    if (!senderId) {
+      return res.status(400).json({
+        success: false,
+        message: "Sender ID is required",
+      });
+    }
+
+    // Update all messages from sender to receiver as seen and read
+    await Message.updateMany(
+      { sender: senderId, receiver: receiverId, seen: false },
+      {
+        $set: {
+          seen: true,
+          isRead: true,
+          readAt: new Date(),
+        },
+      }
+    );
+
+    res.status(200).json({
+      success: true,
+      message: "Messages marked as seen",
+    });
+  } catch (error) {
+    console.error("Error marking messages as seen:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to mark messages as seen",
+      error: error.message,
+    });
+  }
+};
+
 // Get unread message count
 export const getUnreadCount = async (req, res) => {
   try {
@@ -345,7 +384,7 @@ export const getConversations = async (req, res) => {
                 {
                   $and: [
                     { $eq: ["$receiver", currentUserObjectId] },
-                    { $eq: ["$isRead", false] },
+                    { $eq: ["$seen", false] },
                   ],
                 },
                 1,
