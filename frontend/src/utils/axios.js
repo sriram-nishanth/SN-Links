@@ -3,7 +3,7 @@ import { toast } from 'react-toastify';
 
 // Create axios instance
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_CALL || 'http://localhost:3000/api',
+  baseURL: import.meta.env.VITE_API_CALL || 'https://sn-links.onrender.com/api',
   headers: {
     'Content-Type': 'application/json',
   },

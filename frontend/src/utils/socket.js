@@ -44,10 +44,10 @@ export const initializeSocket = async (token) => {
         return;
       }
 
-      // Get server URL from environment or use localhost
+      // Get server URL from environment or use default
       const serverUrl =
         import.meta.env.VITE_SOCKET_URL ||
-        "http://localhost:3000";
+        "https://sn-links.onrender.com";
 
       socket = io(serverUrl, {
         auth: {
