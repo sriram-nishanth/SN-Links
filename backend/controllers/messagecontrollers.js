@@ -1,20 +1,16 @@
 import Message from "../models/message.js";
 import User from "../models/user.js";
 import multer from "multer";
-import path from "path";
-import { fileURLToPath } from "url";
+import { CloudinaryStorage } from "multer-storage-cloudinary";
+import cloudinary from "../config/cloudinary.js";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-// Configure multer for file uploads
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, path.join(__dirname, "../uploads"));
-  },
-  filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
-    cb(null, file.fieldname + "-" + uniqueSuffix + path.extname(file.originalname));
+// Configure multer for Cloudinary file uploads
+const storage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: {
+    folder: "social-media-chat",
+    resource_type: "auto",
+    allowed_formats: ["jpg", "jpeg", "png", "gif", "mp4", "mov", "avi", "webm"],
   },
 });
 
@@ -24,8 +20,8 @@ const upload = multer({
     fileSize: 100 * 1024 * 1024, // 100MB limit
   },
   fileFilter: (req, file, cb) => {
-    const allowedTypes = /jpeg|jpg|png|gif|mp4|mov|avi/;
-    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+    const allowedTypes = /jpeg|jpg|png|gif|mp4|mov|avi|webm/;
+    const extname = allowedTypes.test(file.originalname.split(".").pop().toLowerCase());
     const mimetype = allowedTypes.test(file.mimetype);
 
     if (mimetype && extname) {
@@ -76,18 +72,25 @@ export const uploadFile = async (req, res) => {
       });
     }
 
-    // Determine file type
+    // Determine file type from mimetype
     const fileType = req.file.mimetype.startsWith('image/') ? 'image' : 'video';
 
-    // Create file URL
-    const fileUrl = `${req.protocol}://${req.get('host')}/uploads/${req.file.filename}`;
+    // Get Cloudinary URL (different from local path)
+    const fileUrl = req.file.path || req.file.secure_url;
+
+    if (!fileUrl) {
+      return res.status(500).json({
+        success: false,
+        message: "File upload to Cloudinary failed",
+      });
+    }
 
     res.status(200).json({
       success: true,
       data: {
         url: fileUrl,
         type: fileType,
-        filename: req.file.filename,
+        filename: req.file.filename || req.file.public_id,
         size: req.file.size,
       },
     });
@@ -96,6 +99,7 @@ export const uploadFile = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Failed to upload file",
+      error: error.message,
     });
   }
 };
