@@ -515,6 +515,15 @@ const Chat = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
+  // Format last message display
+  const formatLastMessage = (message) => {
+    if (!message) return "Start a conversation";
+    if (message.messageType === "image") return "📷 Image";
+    if (message.messageType === "video") return "🎥 Video";
+    if (message.messageType === "document") return "📄 Document";
+    return message.content;
+  };
+
   useEffect(() => {
     scrollToBottom();
   }, [messages, selectedChatId]);
@@ -1157,9 +1166,7 @@ const Chat = () => {
                                     : "text-slate-400"
                                 }`}
                               >
-                                {chat.lastMessage
-                                  ? chat.lastMessage.content
-                                  : "Start a conversation"}
+                                {formatLastMessage(chat.lastMessage)}
                               </p>
                               {chat.unreadCount > 0 && (
                                 <span className="w-5 h-5 bg-green-500 text-white text-xs flex items-center justify-center rounded-full">
@@ -1291,9 +1298,7 @@ const Chat = () => {
                               : "text-slate-400"
                           }`}
                         >
-                          {chat.lastMessage
-                            ? chat.lastMessage.content
-                            : "Start a conversation"}
+                          {formatLastMessage(chat.lastMessage)}
                         </p>
                         {chat.unreadCount > 0 && (
                           <span className="w-5 h-5 bg-green-500 text-white text-xs flex items-center justify-center rounded-full">
