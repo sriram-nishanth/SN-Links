@@ -1,5 +1,6 @@
 import Message from "../models/message.js";
 import User from "../models/user.js";
+import mongoose from "mongoose";
 import multer from "multer";
 import { CloudinaryStorage } from "multer-storage-cloudinary";
 import cloudinary from "../config/cloudinary.js";
@@ -447,6 +448,117 @@ export const getConversations = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Failed to fetch conversations",
+    });
+  }
+};
+
+export const deleteForMe = async (req, res) => {
+  try {
+    const { messageId } = req.body;
+    const userId = req.user._id;
+
+    if (!messageId) {
+      return res.status(400).json({
+        success: false,
+        message: "Message ID is required",
+      });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(messageId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid message ID format",
+      });
+    }
+
+    const message = await Message.findById(messageId);
+    if (!message) {
+      return res.status(404).json({
+        success: false,
+        message: "Message not found",
+      });
+    }
+
+    if (!message.deletedBy) {
+      message.deletedBy = [];
+    }
+
+    if (!message.deletedBy.includes(userId.toString())) {
+      message.deletedBy.push(userId.toString());
+      await message.save();
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Message deleted for you",
+      data: message,
+    });
+  } catch (error) {
+    console.error("Error deleting message for user:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to delete message",
+      error: error.message,
+    });
+  }
+};
+
+export const deleteForEveryone = async (req, res) => {
+  try {
+    const { messageId } = req.body;
+    const userId = req.user._id;
+
+    if (!messageId) {
+      return res.status(400).json({
+        success: false,
+        message: "Message ID is required",
+      });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(messageId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid message ID format",
+      });
+    }
+
+    const message = await Message.findById(messageId);
+    if (!message) {
+      return res.status(404).json({
+        success: false,
+        message: "Message not found",
+      });
+    }
+
+    const senderIdStr = message.sender ? message.sender.toString() : null;
+    const userIdStr = userId.toString();
+
+    if (!senderIdStr || senderIdStr !== userIdStr) {
+      return res.status(403).json({
+        success: false,
+        message: "You can only delete messages you sent",
+      });
+    }
+
+    message.messageType = "deleted";
+    message.isDeleted = true;
+    message.content = "";
+    message.media = null;
+    message.postId = null;
+
+    await message.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Message deleted for everyone",
+      data: message,
+    });
+  } catch (error) {
+    console.error("Error deleting message for everyone:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to delete message",
+      error: error.message,
     });
   }
 };

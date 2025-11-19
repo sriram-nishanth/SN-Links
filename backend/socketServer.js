@@ -1,6 +1,7 @@
 import jwt from "jsonwebtoken";
 import User from "./models/user.js";
 import Message from "./models/message.js";
+import mongoose from "mongoose";
 
 // Store active socket connections by userId
 const activeConnections = new Map();
@@ -164,6 +165,25 @@ export const initializeSocket = (io) => {
           seen: message.seen,
         };
 
+        // Validate that receiver exists and is not the sender
+        if (receiverId.toString() === userId.toString()) {
+          socket.emit("message_error", {
+            error: "Cannot send message to yourself",
+          });
+          console.warn(`[Send Message Error] User ${userId} attempted to send message to themselves`);
+          return;
+        }
+
+        // Validate receiver exists in database
+        const receiver = await User.findById(receiverId);
+        if (!receiver) {
+          socket.emit("message_error", {
+            error: "Receiver not found",
+          });
+          console.warn(`[Send Message Error] Receiver ${receiverId} not found in database`);
+          return;
+        }
+
         // FIXED: Get all socket IDs for the receiver user
         const receiverSockets = activeConnections.get(receiverId) || new Set();
         console.log(`[Message Broadcast] Receiver ${receiverId} has ${receiverSockets.size} active socket(s)`);
@@ -278,6 +298,132 @@ export const initializeSocket = (io) => {
         conversationId: receiverId,
       });
       console.log(`[Typing Stop] From: ${userId}, To: ${receiverId}`);
+    });
+
+    // --- MESSAGE DELETION ---
+
+    /**
+     * Handle delete message for me
+     */
+    socket.on("delete_message_for_me", async (data) => {
+      try {
+        const { messageId } = data;
+
+        if (!messageId) {
+          socket.emit("message_error", {
+            error: "Missing messageId",
+          });
+          return;
+        }
+
+        const message = await Message.findById(messageId);
+        if (!message) {
+          socket.emit("message_error", {
+            error: "Message not found",
+          });
+          return;
+        }
+
+        if (!message.deletedBy) {
+          message.deletedBy = [];
+        }
+
+        if (!message.deletedBy.includes(userId.toString())) {
+          message.deletedBy.push(userId.toString());
+          await message.save();
+        }
+
+        socket.emit("message_deleted_for_me", {
+          messageId,
+          success: true,
+        });
+
+        console.log(`[Delete Message For Me] User: ${userId}, Message: ${messageId}`);
+      } catch (error) {
+        console.error(`[Delete Message For Me Error]: ${error.message}`);
+        socket.emit("message_error", {
+          error: "Failed to delete message",
+          details: error.message,
+        });
+      }
+    });
+
+    /**
+     * Handle delete message for everyone
+     */
+    socket.on("delete_message_for_everyone", async (data) => {
+      try {
+        const { messageId, receiverId } = data;
+
+        if (!messageId) {
+          socket.emit("message_error", {
+            error: "Missing messageId",
+          });
+          return;
+        }
+
+        if (!mongoose.Types.ObjectId.isValid(messageId)) {
+          socket.emit("message_error", {
+            error: "Invalid message ID format",
+          });
+          return;
+        }
+
+        const message = await Message.findById(messageId);
+        if (!message) {
+          socket.emit("message_error", {
+            error: "Message not found",
+          });
+          return;
+        }
+
+        const senderIdStr = message.sender ? message.sender.toString() : null;
+        const userIdStr = userId.toString();
+
+        if (!senderIdStr || senderIdStr !== userIdStr) {
+          socket.emit("message_error", {
+            error: "You can only delete messages you sent",
+          });
+          return;
+        }
+
+        message.messageType = "deleted";
+        message.isDeleted = true;
+        message.content = "";
+        message.media = null;
+        message.postId = null;
+
+        await message.save();
+
+        const messagePayload = {
+          messageId,
+          isDeleted: true,
+          messageType: "deleted",
+        };
+
+        socket.emit("message_deleted_for_everyone", {
+          messageId,
+          success: true,
+        });
+
+        if (receiverId) {
+          const receiverSockets = activeConnections.get(receiverId) || new Set();
+          receiverSockets.forEach((socketId) => {
+            io.to(socketId).emit("message_deleted", messagePayload);
+          });
+        }
+
+        const roomId = [userId, receiverId].sort().join("_");
+        io.to(roomId).emit("message_deleted", messagePayload);
+
+        console.log(`[Delete Message For Everyone] User: ${userId}, Message: ${messageId}`);
+      } catch (error) {
+        console.error(`[Delete Message For Everyone Error]: ${error.message}`);
+        socket.emit("message_error", {
+          error: "Failed to delete message",
+          details: error.message,
+        });
+      }
     });
 
     // --- FOLLOW/UNFOLLOW ---

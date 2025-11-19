@@ -34,7 +34,7 @@ const PrivateAccountToggle = ({ isPrivate: initialIsPrivate = false, onToggle })
       }
 
       const response = await axios.post(
-        `${API_BASE_URL}/user/toggle-private`,
+        `${import.meta.env.VITE_API_CALL}/user/toggle-private`,
         { isPrivate: newState },
         {
           headers: {
@@ -54,17 +54,17 @@ const PrivateAccountToggle = ({ isPrivate: initialIsPrivate = false, onToggle })
         
         window.dispatchEvent(new CustomEvent("profileUpdated"));
         
-        toast.success(response.data.message);
+        toast.success(response.data.message || "Privacy settings updated successfully");
         if (onToggle) {
           onToggle(updatedState);
         }
       } else {
         setIsPrivate(!newState);
-        toast.error("Failed to update privacy settings");
+        toast.error(response.data.message || "Failed to update privacy settings");
       }
     } catch (error) {
       setIsPrivate(!newState);
-      toast.error("Failed to update privacy settings");
+      toast.error(error.response?.data?.message || "Failed to update privacy settings");
     } finally {
       setIsLoading(false);
     }

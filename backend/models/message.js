@@ -19,7 +19,7 @@ const messageSchema = new mongoose.Schema({
   },
   messageType: {
     type: String,
-    enum: ['text', 'image', 'video', 'post'],
+    enum: ['text', 'image', 'video', 'post', 'deleted'],
     default: 'text'
   },
   media: {
@@ -47,6 +47,13 @@ const messageSchema = new mongoose.Schema({
   createdAt: {
     type: Date,
     default: Date.now
+  },
+  deletedBy: [{
+    type: String
+  }],
+  isDeleted: {
+    type: Boolean,
+    default: false
   }
 });
 

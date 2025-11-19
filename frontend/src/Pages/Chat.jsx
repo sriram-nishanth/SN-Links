@@ -16,6 +16,7 @@ import {
 } from "react-icons/io5";
 import { FiSmile, FiPaperclip, FiMoreVertical, FiImage } from "react-icons/fi";
 import { motion, AnimatePresence } from "framer-motion";
+import EmojiPicker from "emoji-picker-react";
 import ModernNavbar from "../Components/ModernNavbar";
 import Avatar from "../Components/Avatar";
 import MediaPreviewModal from "../Components/MediaPreviewModal";
@@ -23,7 +24,7 @@ import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { useUser } from "../Context/UserContext";
 import { useSocket } from "../Context/SocketContext";
-import { markAsSeen } from "../utils/chatService";
+import { markAsSeen, deleteMessageForMe, deleteMessageForEveryone } from "../utils/chatService";
 import axios from "axios";
 
 const Chat = () => {
@@ -73,6 +74,9 @@ const Chat = () => {
   const [selectedFileType, setSelectedFileType] = useState(null);
   const [isMuted, setIsMuted] = useState(false);
   const [isBlocked, setIsBlocked] = useState(false);
+  const [contextMenu, setContextMenu] = useState(null);
+  const [selectedMessageId, setSelectedMessageId] = useState(null);
+  const contextMenuRef = useRef(null);
 
   // Get token from cookie
   const getToken = () => {
@@ -180,6 +184,7 @@ const Chat = () => {
         // Transform messages to match display format
         const transformedMessages = (response.data.data || []).map((msg) => ({
           id: msg._id,
+          _id: msg._id,
           text: msg.content,
           content: msg.content,
           sender: msg.sender._id === user._id ? "me" : "other",
@@ -192,6 +197,8 @@ const Chat = () => {
           image: msg.media,
           postId: msg.postId || null,
           seen: msg.seen || false,
+          isDeleted: msg.isDeleted || false,
+          deletedBy: msg.deletedBy || [],
         }));
 
         setMessages((prev) => ({
@@ -284,20 +291,28 @@ const Chat = () => {
 
     // Handle receiving messages from other users
     const handleReceiveMessage = (message) => {
-      // Determine conversation ID
-      const conversationId = message.senderId || message.sender?._id;
-      if (!conversationId) {
+      const senderId = message.senderId || message.sender?._id;
+      const receiverId = message.receiverId || message.receiver?._id;
+
+      if (!senderId || !receiverId) {
+        console.warn("Invalid message payload - missing sender or receiver ID");
         return;
       }
 
-      // Create message object with proper structure
+      if (receiverId !== user._id) {
+        console.warn("Message receiver ID does not match current user - ignoring message");
+        return;
+      }
+
+      const conversationId = senderId;
+
       const newMessage = {
         id: message._id,
         text: message.content,
         content: message.content,
         sender: "other",
-        senderId: message.senderId || message.sender?._id,
-        receiverId: message.receiverId,
+        senderId: senderId,
+        receiverId: receiverId,
         timestamp: new Date(message.createdAt || message.timestamp),
         status: "delivered",
         messageType: message.messageType || "text",
@@ -351,23 +366,37 @@ const Chat = () => {
         });
       });
 
-      // Show toast for received message
-      toast.success("New message received!", {
-        duration: 3000,
-        position: "bottom-right",
-      });
+      // Show notification only if notifications are enabled for this user
+      if (user?.notificationsEnabled !== false) {
+        toast.success("New message received!", {
+          duration: 3000,
+          position: "bottom-right",
+        });
+      }
 
       setTimeout(scrollToBottom, 100);
     };
 
     // Handle message sent confirmation (server echo to replace optimistic message)
     const handleMessageSent = (message) => {
-      const conversationId = message.receiverId;
+      const receiverId = message.receiverId || message.receiver?._id;
+      const senderId = message.senderId || message.sender?._id;
+
+      if (!receiverId || !senderId) {
+        console.warn("Invalid message payload - missing sender or receiver ID");
+        return;
+      }
+
+      if (senderId !== user._id) {
+        console.warn("Message sender ID does not match current user - ignoring message");
+        return;
+      }
+
+      const conversationId = receiverId;
 
       setMessages((prev) => {
         const currentMessages = prev[conversationId] || [];
 
-        // Find and replace the optimistic temporary message with the confirmed message
         const optimisticIndex = currentMessages.findIndex(
           (msg) =>
             msg.id &&
@@ -398,7 +427,6 @@ const Chat = () => {
           };
         }
 
-        // If no optimistic message found, just add it (shouldn't happen)
         return {
           ...prev,
           [conversationId]: [
@@ -472,18 +500,43 @@ const Chat = () => {
       );
     };
 
+    const handleMessageDeleted = (data) => {
+      const { messageId, isDeleted, messageType } = data;
+
+      setMessages((prev) => {
+        const updated = { ...prev };
+        Object.keys(updated).forEach((conversationId) => {
+          updated[conversationId] = updated[conversationId].map((msg) =>
+            msg.id === messageId
+              ? {
+                  ...msg,
+                  isDeleted: true,
+                  messageType: "deleted",
+                  content: "",
+                  media: null,
+                  text: "",
+                }
+              : msg
+          );
+        });
+        return updated;
+      });
+    };
+
     // FIXED: Proper cleanup with empty dependency array prevents re-registration
     socket.off("receive_message", handleReceiveMessage);
     socket.off("message_sent", handleMessageSent);
     socket.off("user_typing", handleTyping);
     socket.off("follow_status_changed", handleFollowStatusChanged);
     socket.off("messages_seen", handleMessagesSeen);
+    socket.off("message_deleted", handleMessageDeleted);
 
     socket.on("receive_message", handleReceiveMessage);
     socket.on("message_sent", handleMessageSent);
     socket.on("user_typing", handleTyping);
     socket.on("follow_status_changed", handleFollowStatusChanged);
     socket.on("messages_seen", handleMessagesSeen);
+    socket.on("message_deleted", handleMessageDeleted);
 
     return () => {
       socket.off("receive_message", handleReceiveMessage);
@@ -491,6 +544,7 @@ const Chat = () => {
       socket.off("user_typing", handleTyping);
       socket.off("follow_status_changed", handleFollowStatusChanged);
       socket.off("messages_seen", handleMessagesSeen);
+      socket.off("message_deleted", handleMessageDeleted);
       if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
     };
   }, [socket, user, selectedChatId]);
@@ -543,16 +597,22 @@ const Chat = () => {
       ) {
         setShowEmojiPicker(false);
       }
+      if (
+        contextMenuRef.current &&
+        !contextMenuRef.current.contains(event.target)
+      ) {
+        setContextMenu(null);
+      }
     };
 
-    if (showMoreOptions || showEmojiPicker) {
+    if (showMoreOptions || showEmojiPicker || contextMenu) {
       document.addEventListener("click", handleClickOutside);
     }
 
     return () => {
       document.removeEventListener("click", handleClickOutside);
     };
-  }, [showMoreOptions, showEmojiPicker]);
+  }, [showMoreOptions, showEmojiPicker, contextMenu]);
 
   // Handle send message
   const handleSend = async () => {
@@ -711,6 +771,82 @@ const Chat = () => {
     } catch (error) {
       toast.error("Failed to block user");
     }
+  };
+
+  const handleDeleteForMe = async (messageId) => {
+    try {
+      await deleteMessageForMe(messageId);
+      
+      setMessages((prev) => ({
+        ...prev,
+        [selectedChatId]: prev[selectedChatId].filter(
+          (msg) => msg.id !== messageId
+        ),
+      }));
+
+      setContextMenu(null);
+      toast.success("Message deleted for you");
+    } catch (error) {
+      toast.error("Failed to delete message");
+    }
+  };
+
+  const handleDeleteForEveryone = async (messageId) => {
+    try {
+      await deleteMessageForEveryone(messageId);
+      
+      setMessages((prev) => ({
+        ...prev,
+        [selectedChatId]: prev[selectedChatId].map((msg) =>
+          msg.id === messageId
+            ? {
+                ...msg,
+                isDeleted: true,
+                messageType: "deleted",
+                content: "",
+                media: null,
+                text: "",
+              }
+            : msg
+        ),
+      }));
+
+      socket.emit("delete_message_for_everyone", {
+        messageId,
+        receiverId: selectedChatId,
+      });
+
+      setContextMenu(null);
+      toast.success("Message deleted for everyone");
+    } catch (error) {
+      toast.error("Failed to delete message");
+    }
+  };
+
+  const handleMessageContextMenu = (e, messageId, isSender) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (!isSender && e.button === 2) {
+      return;
+    }
+
+    const rect = e.currentTarget.getBoundingClientRect();
+    setSelectedMessageId(messageId);
+    setContextMenu({
+      x: e.clientX || rect.right,
+      y: e.clientY || rect.bottom,
+      isSender,
+    });
+  };
+
+  const handleMessageLongPress = (messageId, isSender) => {
+    setSelectedMessageId(messageId);
+    setContextMenu({
+      x: window.innerWidth / 2,
+      y: window.innerHeight / 2,
+      isSender,
+    });
   };
 
   const handleSendMedia = async () => {
@@ -888,8 +1024,8 @@ const Chat = () => {
     setShowEmojiPicker(!showEmojiPicker);
   };
 
-  const addEmoji = (emoji) => {
-    setMessage((prev) => prev + emoji);
+  const addEmoji = (emojiData) => {
+    setMessage((prev) => prev + emojiData.emoji);
     setShowEmojiPicker(false);
     textareaRef.current?.focus();
   };
@@ -930,97 +1066,6 @@ const Chat = () => {
     setFilePreviewUrl(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
-
-  // Common emojis for the picker
-  const emojis = [
-    "😀",
-    "😃",
-    "😄",
-    "😁",
-    "😆",
-    "😅",
-    "😂",
-    "🤣",
-    "😊",
-    "😇",
-    "🙂",
-    "🙃",
-    "😉",
-    "😌",
-    "😍",
-    "🥰",
-    "😘",
-    "😗",
-    "😙",
-    "😚",
-    "😋",
-    "😛",
-    "😝",
-    "😜",
-    "🤪",
-    "🤨",
-    "🧐",
-    "🤓",
-    "😎",
-    "🤩",
-    "🥳",
-    "😏",
-    "😒",
-    "😞",
-    "😔",
-    "😟",
-    "😕",
-    "🙁",
-    "☹️",
-    "😣",
-    "❤️",
-    "💔",
-    "💕",
-    "💖",
-    "💗",
-    "💙",
-    "💚",
-    "💛",
-    "🧡",
-    "💜",
-    "🖤",
-    "💯",
-    "💢",
-    "💥",
-    "💫",
-    "💦",
-    "💨",
-    "🕳",
-    "👍",
-    "👎",
-    "👌",
-    "✌️",
-    "🤞",
-    "🤟",
-    "🤘",
-    "🤙",
-    "👈",
-    "👉",
-    "👆",
-    "👇",
-    "☝️",
-    "✋",
-    "🤚",
-    "🖐",
-    "🖖",
-    "👋",
-    "🤙",
-    "💪",
-    "🦾",
-    "🖕",
-    "✍️",
-    "🙏",
-    "🔥",
-    "✨",
-    "🎉",
-    "🎊",
-    "🎈",
-  ];
 
   // Handle chat selection
   const handleChatSelect = (chatId) => {
@@ -1508,6 +1553,18 @@ const Chat = () => {
                                 ? "justify-end"
                                 : "justify-start"
                             }`}
+                            onContextMenu={(e) =>
+                              handleMessageContextMenu(e, msg.id, msg.sender === "me")
+                            }
+                            onTouchStart={(e) => {
+                              let touchStart = Date.now();
+                              const touchEnd = () => {
+                                if (Date.now() - touchStart > 500) {
+                                  handleMessageLongPress(msg.id, msg.sender === "me");
+                                }
+                              };
+                              e.currentTarget.addEventListener("touchend", touchEnd);
+                            }}
                           >
                             <div
                               className={`max-w-[85%] sm:max-w-[75%] md:max-w-[70%]`}
@@ -1517,11 +1574,15 @@ const Chat = () => {
                                   msg.sender === "me"
                                     ? "bg-green-600 text-white rounded-br-none"
                                     : "bg-slate-700 text-white rounded-bl-none"
-                                }`}
+                                } ${msg.isDeleted ? "opacity-60 italic" : ""}`}
                               >
                                 <div className="flex flex-col">
-                                  {msg.messageType === "image" &&
-                                  (msg.media || msg.content) ? (
+                                  {msg.isDeleted ? (
+                                    <p className="text-sm text-white/70">
+                                      This message was deleted
+                                    </p>
+                                  ) : msg.messageType === "image" &&
+                                    (msg.media || msg.content) ? (
                                     <img
                                       src={msg.media || msg.content}
                                       alt="image"
@@ -1767,21 +1828,55 @@ const Chat = () => {
       {showEmojiPicker && (
         <div
           ref={emojiPickerRef}
-          className="fixed bottom-20 left-4 right-4 sm:left-auto sm:right-4 sm:max-w-sm z-50"
+          className="fixed left-4 right-4 sm:left-auto sm:right-4 z-50 pointer-events-auto"
+          style={{ bottom: "80px" }}
         >
-          <div className="bg-slate-900 rounded-2xl p-4 shadow-2xl border border-white/10">
-            <div className="grid grid-cols-8 gap-2 max-h-48 overflow-y-auto">
-              {emojis.map((emoji, index) => (
-                <button
-                  key={index}
-                  onClick={() => addEmoji(emoji)}
-                  className="w-8 h-8 flex items-center justify-center text-lg hover:bg-white/10 rounded transition-colors"
-                >
-                  {emoji}
-                </button>
-              ))}
-            </div>
-          </div>
+          <EmojiPicker
+            onEmojiClick={addEmoji}
+            theme="dark"
+            height={300}
+            width="100%"
+          />
+        </div>
+      )}
+
+      {/* Message Context Menu */}
+      {contextMenu && (
+        <div
+          ref={contextMenuRef}
+          className="fixed z-50 bg-slate-800 rounded-lg shadow-2xl border border-white/10 py-2 w-48"
+          style={{
+            left: `${Math.min(contextMenu.x, window.innerWidth - 200)}px`,
+            top: `${Math.min(contextMenu.y, window.innerHeight - 150)}px`,
+          }}
+        >
+          {contextMenu.isSender && (
+            <>
+              <button
+                onClick={() => handleDeleteForEveryone(selectedMessageId)}
+                className="w-full text-left px-4 py-2 text-red-400 hover:bg-red-500/10 rounded-none transition-colors flex items-center gap-2 text-sm"
+              >
+                <span>🗑️</span>
+                <span>Delete for Everyone</span>
+              </button>
+              <hr className="border-white/10 my-1" />
+            </>
+          )}
+          <button
+            onClick={() => handleDeleteForMe(selectedMessageId)}
+            className="w-full text-left px-4 py-2 text-white hover:bg-white/10 rounded-none transition-colors flex items-center gap-2 text-sm"
+          >
+            <span>🗑️</span>
+            <span>Delete for Me</span>
+          </button>
+          <hr className="border-white/10 my-1" />
+          <button
+            onClick={() => setContextMenu(null)}
+            className="w-full text-left px-4 py-2 text-gray-400 hover:bg-white/10 rounded-none transition-colors flex items-center gap-2 text-sm"
+          >
+            <span>✕</span>
+            <span>Cancel</span>
+          </button>
         </div>
       )}
 

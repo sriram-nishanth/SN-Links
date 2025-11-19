@@ -58,8 +58,38 @@ export const markAsSeen = async (senderId) => {
   }
 };
 
+export const deleteMessageForMe = async (messageId) => {
+  try {
+    const response = await axios.patch(
+      `${API_BASE_URL}/messages/deleteForMe`,
+      { messageId },
+      getAuthHeaders()
+    );
+    return response.data;
+  } catch (error) {
+    console.error("Error deleting message for me:", error);
+    throw error;
+  }
+};
+
+export const deleteMessageForEveryone = async (messageId) => {
+  try {
+    const response = await axios.patch(
+      `${API_BASE_URL}/messages/deleteForEveryone`,
+      { messageId },
+      getAuthHeaders()
+    );
+    return response.data;
+  } catch (error) {
+    console.error("Error deleting message for everyone:", error);
+    throw error;
+  }
+};
+
 export default {
   sharePost,
   getConversations,
   markAsSeen,
+  deleteMessageForMe,
+  deleteMessageForEveryone,
 };

@@ -491,7 +491,7 @@ const Setting = () => {
         return;
       }
 
-      const response = await fetch(`${API_BASE_URL}/user/password`, {
+      const response = await fetch(`${import.meta.env.VITE_API_CALL}/user/password`, {
         method: "PUT",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -533,7 +533,7 @@ const Setting = () => {
     try {
       const token = user?.token || getToken();
       if (token) {
-        const response = await fetch(`${API_BASE_URL}/user/privacy`, {
+        const response = await fetch(`${import.meta.env.VITE_API_CALL}/user/privacy`, {
           method: "PUT",
           headers: {
             Authorization: `Bearer ${token}`,
@@ -564,7 +564,7 @@ const Setting = () => {
     try {
       const token = getToken();
       if (token) {
-        const response = await fetch(`${API_BASE_URL}/user/notifications`, {
+        const response = await fetch(`${import.meta.env.VITE_API_CALL}/user/notifications`, {
           method: "PUT",
           headers: {
             Authorization: `Bearer ${token}`,

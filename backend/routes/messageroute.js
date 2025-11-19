@@ -8,7 +8,9 @@ import {
   getConversations,
   uploadFile,
   upload,
-  clearMessages
+  clearMessages,
+  deleteForMe,
+  deleteForEveryone
 } from '../controllers/messagecontrollers.js';
 import protect from '../middleware/auth.js';
 
@@ -24,6 +26,8 @@ router.put('/markAsSeen', markAsSeen);
 router.put('/read/:senderId', markMessagesAsRead);
 router.get('/unread/count', getUnreadCount);
 router.delete('/:conversationId/clear', clearMessages);
+router.patch('/deleteForMe', deleteForMe);
+router.patch('/deleteForEveryone', deleteForEveryone);
 
 // Dynamic routes AFTER specific routes
 router.post('/', sendMessage);
